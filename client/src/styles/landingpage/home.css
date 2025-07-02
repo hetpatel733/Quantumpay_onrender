@@ -1,0 +1,291 @@
+/*---------------------------------------------------------- Body ------------------------------------------------ */
+/* Layout 1 */
+
+.layouts {
+    display: flex;
+    height: fit-content;
+    width: 100%;
+    margin: 10vw 0 10vw 0;
+}
+
+.layout1 {
+    margin-top: 0;
+}
+
+.btncenter {
+    margin: 0;
+    display: flex;
+    justify-content: center;
+    margin-left: -8vw;
+}
+
+.lay1img {
+    height: 45vw;
+    margin: 130px 0px 0px 5%;
+    position: absolute;
+    z-index: 2;
+}
+
+.contentl1 {
+    margin: 150px 0px 0px 10%;
+    padding-right: 5px;
+    position: relative;
+    margin-left: 45%;
+}
+
+.lay1head {
+    color: rgba(0, 0, 0, 0.742);
+    font-size: 40px;
+    width: 80%;
+}
+
+.lay1para {
+    color: rgba(0, 124, 124, 0.551);
+    font-size: 1.3em;
+    width: 90%;
+}
+
+.lay1features {
+    font-size: 1rem;
+    color: rgba(0, 0, 0, 0.742);
+}
+
+.lay1btn {
+    background-color: #49a780;
+    border-color: #ffffffd5;
+    font-size: 25px;
+    margin: auto;
+    color: rgb(255, 255, 255);
+}
+
+/* Layout 2 */
+.layout2 {
+    justify-content: right;
+}
+
+.bgcolorlay2 {
+    display: flex;
+    align-items: center;
+    width: 81%;
+    background-color: #59ddd6;
+    /* border-style: solid; */
+    border-radius: 30px 0px 0px 30px;
+    height: fit-content;
+}
+
+.lay2img {
+    margin-left: -250px;
+}
+
+.contentl2 {
+    padding-right: 3vw;
+    margin-top: 15vw;
+}
+
+.lay2btn {
+    background-color: #49a780;
+    display: block;
+    border-color: transparent;
+    font-size: 25px;
+    color: rgb(255, 255, 255);
+}
+
+.lay2arrow {
+    margin: 15vw 0px 2vw 12vw;
+    height: 4vw;
+    width: 4vw;
+    cursor: pointer;
+}
+
+/* Layout3 */
+.layout3 {
+    border: black;
+    color: white;
+    width: 100%;
+    margin-top: 13vw;
+}
+
+.lay3left {
+    display: flex;
+    z-index: 2;
+    position: relative;
+    margin-right: -61px;
+    background-color: #01a5a5;
+    /* max-height: 300px; */
+    height: 440px;
+    width: 50%;
+    justify-content: center;
+    border-top-right-radius: 5px;
+}
+
+.lay3right {
+    display: flex;
+    justify-content: center;
+    margin: 40px 0 0 0;
+    border-style: solid;
+    border-width: 0 0 32px 61px;
+    border-color: transparent transparent #20263B #C4C4C4;
+    z-index: 0;
+    position: relative;
+    background-color: #20263B;
+    width: 55%;
+    height: 432px;
+}
+
+.lay3content {
+    padding: 3vw;
+}
+
+.lay3leftcontent {
+    display: block;
+}
+
+.layout3 h2 {
+    text-align: left;
+    font-size: 4vw;
+}
+
+.layout3 h3 {
+    text-align: left;
+    font-size: 20px;
+    margin: 1vw 0 2vw 0;
+}
+
+.lay3content li {
+    margin: -15px 0 -15px 0;
+}
+
+.lay3btn {
+    margin-top: 15px;
+    width: 350px;
+    font-size: 20px;
+    color: white;
+    font-weight: bold;
+    border: none;
+    padding: 13px;
+    background-color: rgb(17 87 175);
+}
+
+/* layout4 */
+.layout4 {
+    display: inline;
+}
+
+.lay4headparent {
+    width: fit-content;
+    display: block;
+    margin: 10px auto 70px auto;
+}
+
+.lay4head {
+    margin: auto;
+    width: fit-content;
+    font-weight: bold;
+}
+
+.lay4main {
+    display: grid;
+    grid-template-columns: auto auto;
+}
+
+.lay4item {
+    display: flex;
+    margin: 10px 0 10px 0;
+}
+
+.lay4left div.lay4item {
+    padding: 0 20px 0 50px;
+}
+
+.lay4right div.lay4item {
+    padding: 0 50px 0 20px;
+}
+
+.lay4img {
+    padding: 20px;
+    display: flex;
+    align-items: center;
+}
+
+.lay4img img {
+    height: 50px;
+    width: 50px;
+}
+
+.lay4title {
+    font-weight: bolder;
+    margin-top: 20px;
+    font-size: 17px;
+}
+
+.lay4description {
+    font-size: 17px;
+}
+
+/* layout5 */
+.layout5 {
+    margin-bottom: 5px;
+    width: 100%;
+    height: fit-content;
+    justify-items: center;
+    align-items: center;
+    display: grid;
+    flex-direction: column;
+    background-color: white;
+    padding: 7vw 0 10vw 0;
+    border: #1c2031;
+    border-width: 3px 0 0 0;
+    border-style: solid;
+}
+
+.layout5 h2 {
+    margin: 1vw auto 5vw auto;
+    width: fit-content;
+    font-weight: bold;
+}
+
+.partners {
+    display: grid;
+    grid-template-columns: auto auto auto auto auto;
+    column-gap: 10px;
+    width: 100%;
+}
+
+.partner {
+    display: flex;
+    justify-items: center;
+    align-items: center;
+}
+
+.partnerimg {
+    height: 110px;
+    width: 220px;
+    filter: grayscale(100%);
+}
+
+.issuepartner1 {
+    height: 65px;
+    width: 200px;
+    margin-bottom: 15px;
+}
+
+.issuepartner2 {
+    height: 45px;
+    width: 200px;
+    margin-bottom: 10px;
+}
+
+@media screen and (min-width: 200px) {
+    html,
+    body {
+        margin: 0px;
+        padding: 0;
+        width: 100%;
+        overflow-x: hidden;
+    }
+
+    .layouts {
+        width: 100%;
+        overflow-x: hidden;
+    }
+}

@@ -1,0 +1,109 @@
+body {
+    background-color: #ddfeff;
+}
+
+.loginhead {
+    margin: 10px auto 30px auto;
+    font-size: 35px;
+    width: fit-content;
+}
+
+.issueelement {
+    margin: auto;
+    width: 100%;
+    text-align: center;
+    font-size: 18px;
+    padding: 10px;
+    color: red;
+    margin-bottom: 40px;
+}
+
+.issueelement p {
+    margin: 0;
+}
+
+.maincontainer {
+    padding-top: 150px;
+    height: fit-content;
+    width: 100%;
+    background-color: #ddfeff;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding-bottom: 30px;
+}
+
+.formcontainer {
+    width: fit-content;
+    height: fit-content;
+    border: solid;
+    border-color: #599a6e;
+    padding: 45px;
+    margin: auto;
+    border-radius: 10px;
+    background-color: #b5f4f6;
+    display: grid;
+    grid-template-columns: auto;
+    column-gap: 30px;
+    row-gap: 50px;
+}
+
+.sbmtbtnparent {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    background-color: transparent;
+    margin: 50px auto 50px auto;
+}
+
+.sbmtbtnparent button {
+    background-color: #b8b8ff;
+    border: none;
+}
+
+label {
+    font-size: 18px;
+    margin: auto auto 20px auto;
+}
+
+input {
+    padding: 5px;
+}
+
+.formcontainer a{
+    font-size: 13px;
+    text-align: right;
+}
+
+/* Hovers */
+
+.sbmtbtnparent button:hover {
+    box-shadow: 0px 0px 11px 3px rgba(0, 0, 0, 0.4);
+    transition: 300ms;
+}
+
+/* Media Queries */
+
+@media screen and (max-width:650px) {
+    .formcontainer {
+        grid-template-columns: auto;
+    }
+}
+
+@media screen and (max-width:550px) {
+    .grid-col-auto {
+        grid-auto-flow: unset;
+        grid-gap: 10px;
+    }
+}
+
+@media screen and (min-width: 200px) {
+
+    html,
+    body {
+        margin: 0px;
+        padding: 0;
+        width: 100%;
+        overflow-x: hidden;
+    }
+}

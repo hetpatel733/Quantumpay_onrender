@@ -1,0 +1,306 @@
+footer {
+    background-color: #20263B;
+    color: white;
+    padding: 40px 20px;
+    display: grid;
+    gap: 20px;
+}
+
+.footernavigation {
+    display: grid;
+    width: 100%;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 30px;
+    margin-bottom: 40px;
+    justify-items: center;
+}
+
+.footercol {
+    min-width: 0; /* Allows text to wrap properly */
+}
+
+footer h2 {
+    font-size: 18px;
+    font-weight: bolder;
+    margin-bottom: 15px;
+    color: #ffffff;
+}
+
+.footercol ul {
+    padding: 0;
+    margin: 0;
+}
+
+.footercol ul li {
+    font-size: 14px;
+    margin-bottom: 8px;
+    list-style: none;
+    color: #cccccc;
+    cursor: pointer;
+    transition: color 0.3s ease;
+}
+
+.footercol ul li:hover {
+    color: #ffffff;
+}
+
+/* Social Media Section */
+.socialmedia {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 20px;
+    margin: 20px 0;
+    flex-wrap: wrap;
+}
+
+.socialmedia a {
+    color: #cccccc;
+    font-size: 24px;
+    text-decoration: none;
+    transition: all 0.3s ease;
+    padding: 8px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+}
+
+.socialmedia a:hover {
+    color: #ffffff;
+    background-color: rgba(255, 255, 255, 0.1);
+    transform: translateY(-2px);
+}
+
+/* Logo Section */
+.footerlogo {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    margin: 20px 0;
+}
+
+.footerlogo img {
+    height: 40px;
+    width: 45px;
+    border-radius: 4px;
+}
+
+.footerlogo p {
+    font-size: 24px;
+    font-weight: bold;
+    margin: 0;
+    color: #ffffff;
+}
+
+/* Copyright Text */
+footer > p {
+    text-align: center;
+    font-size: 12px;
+    color: #999999;
+    margin: 5px 0;
+}
+
+/* Responsive Design */
+
+/* Large tablets and small desktops */
+@media screen and (max-width: 1024px) {
+    footer {
+        padding: 30px 15px;
+    }
+    
+    .footernavigation {
+        gap: 20px;
+    }
+    
+    footer h2 {
+        font-size: 16px;
+    }
+    
+    .footercol ul li {
+        font-size: 13px;
+    }
+}
+
+/* Tablets */
+@media screen and (max-width: 768px) {
+    .footernavigation {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 25px;
+        text-align: center;
+    }
+    
+    .socialmedia a {
+        font-size: 22px;
+        width: 36px;
+        height: 36px;
+    }
+    
+    .footerlogo p {
+        font-size: 22px;
+    }
+}
+
+/* Mobile landscape and small tablets */
+@media screen and (max-width: 600px) {
+    footer {
+        padding: 25px 15px;
+    }
+    
+    .footernavigation {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 20px;
+        margin-bottom: 30px;
+    }
+    
+    footer h2 {
+        font-size: 15px;
+        margin-bottom: 12px;
+    }
+    
+    .footercol ul li {
+        font-size: 12px;
+        margin-bottom: 6px;
+    }
+    
+    .socialmedia {
+        gap: 15px;
+    }
+    
+    .socialmedia a {
+        font-size: 20px;
+        width: 34px;
+        height: 34px;
+    }
+    
+    .footerlogo {
+        flex-direction: column;
+        gap: 8px;
+    }
+    
+    .footerlogo img {
+        height: 35px;
+        width: 40px;
+    }
+    
+    .footerlogo p {
+        font-size: 20px;
+    }
+}
+
+/* Mobile portrait */
+@media screen and (max-width: 480px) {
+    footer {
+        padding: 20px 10px;
+    }
+    
+    .footernavigation {
+        grid-template-columns: 1fr;
+        gap: 25px;
+        text-align: center;
+        margin-bottom: 25px;
+    }
+    
+    .footercol {
+        padding: 15px;
+        background-color: rgba(255, 255, 255, 0.05);
+        border-radius: 8px;
+    }
+    
+    footer h2 {
+        font-size: 16px;
+        margin-bottom: 15px;
+    }
+    
+    .footercol ul li {
+        font-size: 13px;
+        margin-bottom: 8px;
+    }
+    
+    .socialmedia {
+        gap: 12px;
+        margin: 15px 0;
+    }
+    
+    .socialmedia a {
+        font-size: 18px;
+        width: 32px;
+        height: 32px;
+    }
+    
+    .footerlogo {
+        margin: 15px 0;
+    }
+    
+    .footerlogo img {
+        height: 32px;
+        width: 36px;
+    }
+    
+    .footerlogo p {
+        font-size: 18px;
+    }
+    
+    footer > p {
+        font-size: 11px;
+        margin: 3px 0;
+        padding: 0 10px;
+    }
+}
+
+/* Very small mobile screens */
+@media screen and (max-width: 320px) {
+    footer {
+        padding: 15px 8px;
+    }
+    
+    .footercol {
+        padding: 12px;
+    }
+    
+    footer h2 {
+        font-size: 14px;
+    }
+    
+    .footercol ul li {
+        font-size: 12px;
+    }
+    
+    .socialmedia a {
+        font-size: 16px;
+        width: 30px;
+        height: 30px;
+    }
+    
+    .footerlogo p {
+        font-size: 16px;
+    }
+    
+    footer > p {
+        font-size: 10px;
+    }
+}
+
+/* Hover effects - only on devices that support hover */
+@media (hover: hover) and (pointer: fine) {
+    .footercol ul li:hover {
+        color: #ffffff;
+    }
+    
+    .socialmedia a:hover {
+        color: #ffffff;
+        background-color: rgba(255, 255, 255, 0.1);
+        transform: translateY(-2px);
+    }
+}
+
+/* Remove hover effects on touch devices */
+@media (hover: none) {
+    .socialmedia a:hover {
+        transform: none;
+        background-color: transparent;
+    }
+}

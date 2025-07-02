@@ -1,0 +1,153 @@
+/* navbar.css - enhanced for responsive design */
+* {
+  box-sizing: border-box;
+}
+
+ul {
+  margin: 0;
+}
+
+/* Remove default button styling */
+button {
+  border: none !important;
+  background: none;
+  outline: none;
+  cursor: pointer;
+}
+
+/* Override default button styles specifically for regular buttons */
+.btn, .lay1btn, .lay2btn, .lay3btn, .sbmtbtnparent button {
+  border-radius: 40px;
+  padding: 5px;
+  width: 200px;
+  border: 3px solid;
+}
+
+.listremove {
+  list-style-type: none;
+  margin-left: -40px;
+}
+
+body {
+  font-family: 'Raleway', sans-serif;
+}
+
+.x-bar {
+  transition: all 0.5s;
+  position: fixed;
+  width: 100%;
+  z-index: 10;
+}
+
+/* Remove underlines from all navigation links */
+.no-underline {
+  text-decoration: none !important;
+}
+
+nav a, nav a:hover, nav a:visited, nav a:active {
+  text-decoration: none !important;
+}
+
+/* Enhanced navbar styles */
+.navbar-brand {
+  transition: transform 0.2s ease;
+}
+
+.navbar-brand:hover {
+  transform: scale(1.05);
+}
+
+/* Mobile menu button specific styles */
+.mobile-menu-button {
+  border: none !important;
+  background: transparent !important;
+  padding: 0 !important;
+  width: auto !important;
+  height: auto !important;
+  border-radius: 0 !important;
+}
+
+/* Mobile menu animations */
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.mobile-menu-enter {
+  animation: slideDown 0.3s ease-out;
+}
+
+/* Responsive breakpoints */
+@media (max-width: 1024px) {
+  .desktop-nav {
+    display: none;
+  }
+  
+  .mobile-menu-button {
+    display: flex;
+  }
+}
+
+@media (min-width: 1025px) {
+  .desktop-nav {
+    display: block;
+  }
+  
+  .mobile-menu-button {
+    display: none;
+  }
+}
+
+/* Mobile-specific adjustments */
+@media (max-width: 768px) {
+  .navbar-brand img {
+    height: 2.5rem;
+    width: 10rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .navbar-brand img {
+    height: 2rem;
+    width: 8rem;
+  }
+  
+  .mobile-nav-link {
+    padding: 0.75rem 1rem;
+    font-size: 0.9rem;
+  }
+}
+
+/* Active state enhancement */
+.nav-active {
+  background-color: #97e5e9;
+  border-radius: 1rem;
+}
+
+/* Smooth transitions for all interactive elements */
+.nav-link {
+  transition: all 0.2s ease-in-out;
+}
+
+.nav-link:hover {
+  transform: translateY(-1px);
+}
+
+/* Ensure navbar stays above other content */
+header {
+  z-index: 1000;
+}
+
+/* Mobile menu overlay */
+@media (max-width: 1024px) {
+  .mobile-nav-open {
+    background-color: rgba(181, 244, 246, 0.98);
+    backdrop-filter: blur(8px);
+  }
+}

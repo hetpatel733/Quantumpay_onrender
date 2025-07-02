@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Payment Page</title>
+  <link rel="stylesheet" href="/css/payment2.css" />
+</head>
+
+<body>
+  <div id="logoimgdiv">
+    <a href="/"><img src="/images/Logo.webp" id="logoimg" alt="Logo" /></a>
+  </div>
+
+  <div id="amntinusd">
+    <div id="bgcoloramnt">
+      <p>Amount:</p>&nbsp;
+      <p id="amnt"></p>&nbsp;
+      <p id="type"></p>
+    </div>
+  </div>
+
+  <div id="paymentinfo">
+    <div id="orderiddiv">
+      <p>Order Id:&nbsp;</p>
+      <p id="orderid"></p>
+    </div>
+
+    <div id="paymentstatus">
+      <p id="success" class="displaynone">Successful Payment</p>
+      <p id="unsuccess">Do not leave the page and after payment refresh the page</p>
+    </div>
+
+    <div id="qrdiv">
+      <img src="/" alt="QR Code" id="qr" />
+    </div>
+
+    <div id="addressdiv">
+      <input type="text" value="" id="address" readonly />
+      <button onclick="copyaddress()" title="Copy address">📋</button>
+    </div>
+  </div>
+
+  <div id="issuediv">
+    <a href="/contact">Any issue?</a>
+    <p>please do not forget to save order id while contacting us</p>
+  </div>
+
+  <script src="/js/payment2.js"></script>
+</body>
+
+</html>

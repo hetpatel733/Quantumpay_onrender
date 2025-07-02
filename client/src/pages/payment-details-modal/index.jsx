@@ -1,0 +1,1202 @@
+import React, { useState, useEffect, useRef } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
+import Icon from "components/AppIcon";
+import Image from "components/AppImage";
+
+const PaymentDetailsModal = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const modalRef = useRef(null);
+  const [activeTab, setActiveTab] = useState("details");
+  const [isRefundModalOpen, setIsRefundModalOpen] = useState(false);
+  const [refundAmount, setRefundAmount] = useState("");
+  const [refundReason, setRefundReason] = useState("");
+  const [customerMessage, setCustomerMessage] = useState("");
+  const [paymentData, setPaymentData] = useState(null);
+
+  const id = new URLSearchParams(location.search).get("id");
+
+  useEffect(() => {
+    const fetchPayment = async () => {
+      try {
+        const response = await fetch(
+          `http://localhost:8000/api/paymentinfo?id=${id}`,
+          {
+            method: "GET",
+            credentials: "include",
+            headers: {
+              "Content-Type": "application/json",
+            },
+          }
+        );
+        if (!response.ok) throw new Error("Failed to fetch payment data");
+        const data = await response.json();
+        setPaymentData(data); // Adjust this according to your API response shape
+      } catch (err) {
+        setPaymentData(null);
+      }
+    };
+    if (id) fetchPayment();
+  }, [id]);
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case "completed":
+        return "text-success bg-success-100";
+      case "processing":
+      case "pending":
+        return "text-warning bg-warning-100 pulse-pending";
+      case "failed":
+        return "text-error bg-error-100";
+      default:
+        return "text-text-secondary bg-secondary-100";
+    }
+  };
+
+  const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  const copyToClipboard = (text) => {
+    navigator.clipboard.writeText(text);
+  };
+
+  const handleRefund = () => {
+    setIsRefundModalOpen(false);
+    setRefundAmount("");
+    setRefundReason("");
+    // Handle refund logic here
+  };
+
+  const handleSendMessage = () => {
+    if (customerMessage.trim()) {
+      // Handle message sending logic here
+      setCustomerMessage("");
+    }
+  };
+
+  const handleClose = () => {
+    navigate("/dashboard/payments-management");
+  };
+
+  // Handle escape key
+  useEffect(() => {
+    const handleEscape = (e) => {
+      if (e.key === "Escape") {
+        handleClose();
+      }
+    };
+
+    document.addEventListener("keydown", handleEscape);
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.removeEventListener("keydown", handleEscape);
+      document.body.style.overflow = "unset";
+    };
+  }, []);
+
+  const tabs = [
+    { id: "details", label: "Transaction Details", icon: "FileText" },
+    { id: "blockchain", label: "Blockchain Info", icon: "Link" },
+    {
+      id: "communication",
+      label: "Customer Communication",
+      icon: "MessageSquare",
+    },
+  ];
+
+  if (!paymentData) {
+    return (
+      <div className="fixed inset-0 z-300 bg-background flex items-center justify-center">
+        <Icon name="Loader" size={24} className="animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 z-300 bg-background">
+      {/* Mobile/Tablet Full Screen Layout */}
+      <div className="h-full flex flex-col lg:hidden">
+        {/* Mobile Header */}
+        <div className="flex items-center justify-between p-4 border-b border-border bg-surface">
+          <button
+            onClick={handleClose}
+            className="p-2 rounded-lg hover:bg-secondary-100 transition-smooth"
+          >
+            <Icon name="ArrowLeft" size={20} color="currentColor" />
+          </button>
+          <h1 className="text-lg font-semibold text-text-primary">
+            Transaction Details
+          </h1>
+          <div className="w-10"></div>
+        </div>
+
+        {/* Mobile Content */}
+        <div className="flex-1 overflow-y-auto p-4">
+          <div className="space-y-6">
+            {/* Status and Amount */}
+            <div className="bg-surface rounded-lg p-4 border border-border">
+              <div className="text-center mb-4">
+                <div
+                  className={`
+                  inline-flex items-center px-4 py-2 rounded-full text-lg font-medium mb-3
+                  ${getStatusColor(paymentData.status)}
+                `}
+                >
+                  <Icon
+                    name={
+                      paymentData.status === "completed"
+                        ? "CheckCircle"
+                        : paymentData.status === "processing"
+                        ? "Clock"
+                        : "XCircle"
+                    }
+                    size={20}
+                    color="currentColor"
+                    className="mr-2"
+                  />
+                  {paymentData.status.charAt(0).toUpperCase() +
+                    paymentData.status.slice(1)}
+                </div>
+                <h2 className="text-3xl font-bold text-text-primary mb-1">
+                  $
+                  {paymentData.amount.toLocaleString("en-US", {
+                    minimumFractionDigits: 2,
+                  })}
+                </h2>
+                <p className="text-text-secondary">
+                  {paymentData.cryptoAmount} {paymentData.cryptoCurrency}
+                </p>
+              </div>
+            </div>
+
+            {/* Tab Navigation */}
+            <div className="bg-surface rounded-lg border border-border">
+              <div className="flex border-b border-border">
+                {tabs.map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`
+                      flex-1 flex items-center justify-center space-x-2 px-4 py-3
+                      text-sm font-medium transition-smooth
+                      ${
+                        activeTab === tab.id
+                          ? "text-primary border-b-2 border-primary bg-primary-50"
+                          : "text-text-secondary hover:text-text-primary"
+                      }
+                    `}
+                  >
+                    <Icon name={tab.icon} size={16} color="currentColor" />
+                    <span className="hidden sm:inline">{tab.label}</span>
+                  </button>
+                ))}
+              </div>
+
+              <div className="p-4">
+                {activeTab === "details" && (
+                  <TransactionDetailsTab
+                    paymentData={paymentData}
+                    copyToClipboard={copyToClipboard}
+                    formatDate={formatDate}
+                  />
+                )}
+                {activeTab === "blockchain" && (
+                  <BlockchainInfoTab
+                    paymentData={paymentData}
+                    copyToClipboard={copyToClipboard}
+                  />
+                )}
+                {activeTab === "communication" && (
+                  <CommunicationTab
+                    paymentData={paymentData}
+                    customerMessage={customerMessage}
+                    setCustomerMessage={setCustomerMessage}
+                    handleSendMessage={handleSendMessage}
+                    formatDate={formatDate}
+                  />
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Mobile Action Buttons */}
+        <div className="p-4 border-t border-border bg-surface">
+          <div className="flex space-x-3">
+            <button
+              onClick={() => setIsRefundModalOpen(true)}
+              className="
+                flex-1 flex items-center justify-center space-x-2 px-4 py-3
+                border border-error text-error rounded-lg
+                hover:bg-error-50 transition-smooth
+              "
+            >
+              <Icon name="RotateCcw" size={16} color="currentColor" />
+              <span>Refund</span>
+            </button>
+            <button
+              className="
+              flex-1 flex items-center justify-center space-x-2 px-4 py-3
+              bg-primary text-white rounded-lg
+              hover:bg-primary-700 transition-smooth
+            "
+            >
+              <Icon name="Download" size={16} color="currentColor" />
+              <span>Receipt</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Desktop Modal Layout */}
+      <div className="hidden lg:flex items-center justify-center p-8 h-full">
+        <div
+          className="absolute inset-0 bg-black bg-opacity-50"
+          onClick={handleClose}
+        />
+
+        <div
+          ref={modalRef}
+          className="
+            relative bg-surface rounded-lg shadow-dropdown
+            w-full max-w-6xl max-h-[90vh] overflow-hidden
+            transition-layout
+          "
+        >
+          {/* Desktop Header */}
+          <div className="flex items-center justify-between p-6 border-b border-border">
+            <div>
+              <div className="flex items-center space-x-3 mt-2">
+                <Icon
+                  name="FileText"
+                  size={24}
+                  color="currentColor"
+                  className="text-primary"
+                />
+                <div>
+                  <h2 className="text-xl font-semibold text-text-primary">
+                    Payment Details
+                  </h2>
+                  <p className="text-sm text-text-secondary">
+                    Transaction ID: {paymentData.id}
+                  </p>
+                </div>
+              </div>
+            </div>
+            <button
+              onClick={handleClose}
+              className="
+                p-2 rounded-lg
+                hover:bg-secondary-100 transition-smooth
+                text-text-secondary hover:text-text-primary
+              "
+            >
+              <Icon name="X" size={20} color="currentColor" />
+            </button>
+          </div>
+
+          {/* Desktop Content */}
+          <div className="flex h-[calc(90vh-140px)]">
+            {/* Left Section - Transaction Summary */}
+            <div className="w-1/3 border-r border-border p-6 overflow-y-auto">
+              <div className="space-y-6">
+                {/* Status and Amount */}
+                <div className="text-center">
+                  <div
+                    className={`
+                    inline-flex items-center px-4 py-2 rounded-full text-lg font-medium mb-4
+                    ${getStatusColor(paymentData.status)}
+                  `}
+                  >
+                    <Icon
+                      name={
+                        paymentData.status === "completed"
+                          ? "CheckCircle"
+                          : paymentData.status === "processing"
+                          ? "Clock"
+                          : "XCircle"
+                      }
+                      size={20}
+                      color="currentColor"
+                      className="mr-2"
+                    />
+                    {paymentData.status.charAt(0).toUpperCase() +
+                      paymentData.status.slice(1)}
+                  </div>
+                  <h3 className="text-4xl font-bold text-text-primary mb-2">
+                    $
+                    {paymentData.amount.toLocaleString("en-US", {
+                      minimumFractionDigits: 2,
+                    })}
+                  </h3>
+                  <p className="text-text-secondary text-lg">
+                    {paymentData.cryptoAmount} {paymentData.cryptoCurrency}
+                  </p>
+                  <p className="text-sm text-text-secondary mt-1">
+                    Rate: ${paymentData.recipient.exchangeRate.toLocaleString()}{" "}
+                    per BTC
+                  </p>
+                </div>
+
+                {/* Transaction Info */}
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-text-secondary mb-1">
+                      Transaction ID
+                    </label>
+                    <div className="flex items-center space-x-2">
+                      <code className="font-mono text-sm text-text-primary bg-background px-2 py-1 rounded border flex-1">
+                        {paymentData.id}
+                      </code>
+                      <button
+                        onClick={() => copyToClipboard(paymentData.id)}
+                        className="p-1 hover:bg-secondary-100 rounded transition-smooth"
+                      >
+                        <Icon
+                          name="Copy"
+                          size={16}
+                          color="currentColor"
+                          className="text-text-secondary"
+                        />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-text-secondary mb-1">
+                      Blockchain Hash
+                    </label>
+                    <div className="flex items-center space-x-2">
+                      <code className="font-mono text-xs text-text-primary bg-background px-2 py-1 rounded border flex-1 break-all">
+                        {paymentData.blockchainHash}
+                      </code>
+                      <button
+                        onClick={() =>
+                          copyToClipboard(paymentData.blockchainHash)
+                        }
+                        className="p-1 hover:bg-secondary-100 rounded transition-smooth flex-shrink-0"
+                      >
+                        <Icon
+                          name="Copy"
+                          size={16}
+                          color="currentColor"
+                          className="text-text-secondary"
+                        />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-text-secondary mb-1">
+                      Timestamp
+                    </label>
+                    <p className="text-text-primary">
+                      {formatDate(paymentData.timestamp)}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Customer Info */}
+                <div className="bg-background rounded-lg p-4">
+                  <h4 className="font-medium text-text-primary mb-3">
+                    Customer Information
+                  </h4>
+                  <div className="flex items-center space-x-3 mb-3">
+                    <Image
+                      src={paymentData.customer.avatar}
+                      alt={paymentData.customer.name}
+                      className="w-10 h-10 rounded-full object-cover"
+                    />
+                    <div>
+                      <p className="font-medium text-text-primary">
+                        {paymentData.customer.name}
+                      </p>
+                      <p className="text-sm text-text-secondary">
+                        {paymentData.customer.company}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-text-secondary">Email:</span>
+                      <span className="text-text-primary">
+                        {paymentData.customer.email}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-text-secondary">Customer ID:</span>
+                      <span className="font-mono text-text-primary">
+                        {paymentData.customer.id}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Right Section - Detailed Information */}
+            <div className="flex-1 flex flex-col">
+              {/* Tab Navigation */}
+              <div className="flex border-b border-border">
+                {tabs.map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`
+                      flex items-center space-x-2 px-6 py-4
+                      text-sm font-medium transition-smooth
+                      ${
+                        activeTab === tab.id
+                          ? "text-primary border-b-2 border-primary bg-primary-50"
+                          : "text-text-secondary hover:text-text-primary"
+                      }
+                    `}
+                  >
+                    <Icon name={tab.icon} size={16} color="currentColor" />
+                    <span>{tab.label}</span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Tab Content */}
+              <div className="flex-1 p-6 overflow-y-auto">
+                {activeTab === "details" && (
+                  <TransactionDetailsTab
+                    paymentData={paymentData}
+                    copyToClipboard={copyToClipboard}
+                    formatDate={formatDate}
+                  />
+                )}
+                {activeTab === "blockchain" && (
+                  <BlockchainInfoTab
+                    paymentData={paymentData}
+                    copyToClipboard={copyToClipboard}
+                  />
+                )}
+                {activeTab === "communication" && (
+                  <CommunicationTab
+                    paymentData={paymentData}
+                    customerMessage={customerMessage}
+                    setCustomerMessage={setCustomerMessage}
+                    handleSendMessage={handleSendMessage}
+                    formatDate={formatDate}
+                  />
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Desktop Footer Actions */}
+          <div className="flex items-center justify-between p-6 border-t border-border">
+            <div className="flex items-center space-x-3">
+              <button
+                onClick={() => setIsRefundModalOpen(true)}
+                className="
+                  flex items-center space-x-2 px-4 py-2
+                  border border-error text-error rounded-lg
+                  hover:bg-error-50 transition-smooth
+                "
+              >
+                <Icon name="RotateCcw" size={16} color="currentColor" />
+                <span>Process Refund</span>
+              </button>
+              <button
+                className="
+                flex items-center space-x-2 px-4 py-2
+                border border-border text-text-secondary rounded-lg
+                hover:bg-secondary-100 hover:text-text-primary transition-smooth
+              "
+              >
+                <Icon name="MessageSquare" size={16} color="currentColor" />
+                <span>Add Note</span>
+              </button>
+            </div>
+
+            <div className="flex items-center space-x-3">
+              <button
+                onClick={handleClose}
+                className="
+                  px-4 py-2 border border-border rounded-lg
+                  text-text-secondary hover:text-text-primary
+                  hover:bg-secondary-100 transition-smooth
+                "
+              >
+                Close
+              </button>
+              <button
+                className="
+                flex items-center space-x-2 px-4 py-2
+                bg-primary text-white rounded-lg
+                hover:bg-primary-700 transition-smooth
+              "
+              >
+                <Icon name="Download" size={16} color="currentColor" />
+                <span>Export Receipt</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Refund Modal */}
+      {isRefundModalOpen && (
+        <RefundModal
+          isOpen={isRefundModalOpen}
+          onClose={() => setIsRefundModalOpen(false)}
+          onConfirm={handleRefund}
+          paymentData={paymentData}
+          refundAmount={refundAmount}
+          setRefundAmount={setRefundAmount}
+          refundReason={refundReason}
+          setRefundReason={setRefundReason}
+        />
+      )}
+    </div>
+  );
+};
+
+// Transaction Details Tab Component
+const TransactionDetailsTab = ({
+  paymentData,
+  copyToClipboard,
+  formatDate,
+}) => {
+  return (
+    <div className="space-y-6">
+      {/* Payment Method Details */}
+      <div>
+        <h4 className="text-lg font-medium text-text-primary mb-4">
+          Payment Method Details
+        </h4>
+        <div className="bg-background rounded-lg p-4 space-y-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-text-secondary mb-1">
+                Cryptocurrency
+              </label>
+              <p className="text-text-primary">
+                {paymentData.cryptoCurrency} - Bitcoin
+              </p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-text-secondary mb-1">
+                Wallet Type
+              </label>
+              <p className="text-text-primary">
+                {paymentData.recipient.walletType}
+              </p>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-text-secondary mb-1">
+              Recipient Wallet Address
+            </label>
+            <div className="flex items-center space-x-2">
+              <code className="font-mono text-sm text-text-primary bg-surface px-2 py-1 rounded border flex-1 break-all">
+                {paymentData.recipient.walletAddress}
+              </code>
+              <button
+                onClick={() =>
+                  copyToClipboard(paymentData.recipient.walletAddress)
+                }
+                className="p-1 hover:bg-secondary-100 rounded transition-smooth flex-shrink-0"
+              >
+                <Icon
+                  name="Copy"
+                  size={16}
+                  color="currentColor"
+                  className="text-text-secondary"
+                />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Transaction Timeline */}
+      <div>
+        <h4 className="text-lg font-medium text-text-primary mb-4">
+          Transaction Timeline
+        </h4>
+        <div className="bg-background rounded-lg p-4">
+          <div className="space-y-4">
+            {paymentData.timeline.map((event, index) => (
+              <div key={index} className="flex items-start space-x-3">
+                <div
+                  className={`
+                  w-3 h-3 rounded-full mt-1.5 flex-shrink-0
+                  ${
+                    event.status === "completed"
+                      ? "bg-success"
+                      : event.status === "confirmed"
+                      ? "bg-primary"
+                      : event.status === "processing"
+                      ? "bg-warning"
+                      : "bg-secondary-300"
+                  }
+                `}
+                />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-text-primary">
+                    {event.description}
+                  </p>
+                  <p className="text-xs text-text-secondary">
+                    {formatDate(event.timestamp)}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Fee Breakdown */}
+      <div>
+        <h4 className="text-lg font-medium text-text-primary mb-4">
+          Fee Breakdown
+        </h4>
+        <div className="bg-background rounded-lg p-4 space-y-3">
+          <div className="flex justify-between items-center">
+            <span className="text-text-secondary">Network Fee</span>
+            <span className="font-mono text-text-primary">
+              {paymentData.networkFee} BTC
+            </span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-text-secondary">Platform Fee</span>
+            <span className="font-mono text-text-primary">
+              ${paymentData.platformFee}
+            </span>
+          </div>
+          <div className="border-t border-border pt-2">
+            <div className="flex justify-between items-center font-medium">
+              <span className="text-text-primary">Total Amount</span>
+              <span className="text-text-primary">
+                $
+                {paymentData.amount.toLocaleString("en-US", {
+                  minimumFractionDigits: 2,
+                })}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Notes */}
+      <div>
+        <h4 className="text-lg font-medium text-text-primary mb-4">
+          Transaction Notes
+        </h4>
+        <div className="bg-background rounded-lg p-4">
+          {paymentData.notes.length > 0 ? (
+            <div className="space-y-3">
+              {paymentData.notes.map((note) => (
+                <div key={note.id} className="border-l-4 border-primary pl-4">
+                  <p className="text-text-primary text-sm">{note.content}</p>
+                  <p className="text-xs text-text-secondary mt-1">
+                    {note.author} • {formatDate(note.timestamp)}
+                  </p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-text-secondary text-sm">
+              No notes available for this transaction.
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Blockchain Info Tab Component
+const BlockchainInfoTab = ({ paymentData, copyToClipboard }) => {
+  return (
+    <div className="space-y-6">
+      {/* Confirmation Status */}
+      <div>
+        <h4 className="text-lg font-medium text-text-primary mb-4">
+          Confirmation Status
+        </h4>
+        <div className="bg-background rounded-lg p-4">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-text-secondary">Confirmations</span>
+            <span className="text-text-primary font-medium">
+              {paymentData.confirmations}/6
+            </span>
+          </div>
+          <div className="w-full bg-secondary-200 rounded-full h-3">
+            <div
+              className="bg-success h-3 rounded-full transition-layout"
+              style={{
+                width: `${Math.min(
+                  (paymentData.confirmations / 6) * 100,
+                  100
+                )}%`,
+              }}
+            />
+          </div>
+          <p className="text-sm text-text-secondary mt-2">
+            {paymentData.confirmations >= 6
+              ? "Fully confirmed"
+              : `${6 - paymentData.confirmations} more confirmations needed`}
+          </p>
+        </div>
+      </div>
+
+      {/* Blockchain Details */}
+      <div>
+        <h4 className="text-lg font-medium text-text-primary mb-4">
+          Blockchain Details
+        </h4>
+        <div className="bg-background rounded-lg p-4 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-text-secondary mb-1">
+              Transaction Hash
+            </label>
+            <div className="flex items-center space-x-2">
+              <code className="font-mono text-sm text-text-primary bg-surface px-2 py-1 rounded border flex-1 break-all">
+                {paymentData.blockchainHash}
+              </code>
+              <button
+                onClick={() => copyToClipboard(paymentData.blockchainHash)}
+                className="p-1 hover:bg-secondary-100 rounded transition-smooth flex-shrink-0"
+              >
+                <Icon
+                  name="Copy"
+                  size={16}
+                  color="currentColor"
+                  className="text-text-secondary"
+                />
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-text-secondary mb-1">
+                Network
+              </label>
+              <p className="text-text-primary">Bitcoin Mainnet</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-text-secondary mb-1">
+                Block Height
+              </label>
+              <p className="text-text-primary">825,432</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-text-secondary mb-1">
+                Gas Price
+              </label>
+              <p className="text-text-primary">15 sat/vB</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-text-secondary mb-1">
+                Transaction Size
+              </label>
+              <p className="text-text-primary">225 bytes</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Blockchain Explorer Links */}
+      <div>
+        <h4 className="text-lg font-medium text-text-primary mb-4">
+          Blockchain Explorers
+        </h4>
+        <div className="bg-background rounded-lg p-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <a
+              href={`https://blockstream.info/tx/${paymentData.blockchainHash}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="
+                flex items-center justify-between p-3 border border-border rounded-lg
+                hover:bg-surface hover:border-primary transition-smooth
+              "
+            >
+              <div className="flex items-center space-x-3">
+                <Icon
+                  name="ExternalLink"
+                  size={16}
+                  color="currentColor"
+                  className="text-primary"
+                />
+                <span className="text-text-primary">Blockstream</span>
+              </div>
+              <Icon
+                name="ChevronRight"
+                size={16}
+                color="currentColor"
+                className="text-text-secondary"
+              />
+            </a>
+
+            <a
+              href={`https://blockchain.info/tx/${paymentData.blockchainHash}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="
+                flex items-center justify-between p-3 border border-border rounded-lg
+                hover:bg-surface hover:border-primary transition-smooth
+              "
+            >
+              <div className="flex items-center space-x-3">
+                <Icon
+                  name="ExternalLink"
+                  size={16}
+                  color="currentColor"
+                  className="text-primary"
+                />
+                <span className="text-text-primary">Blockchain.info</span>
+              </div>
+              <Icon
+                name="ChevronRight"
+                size={16}
+                color="currentColor"
+                className="text-text-secondary"
+              />
+            </a>
+          </div>
+        </div>
+      </div>
+
+      {/* Network Information */}
+      <div>
+        <h4 className="text-lg font-medium text-text-primary mb-4">
+          Network Information
+        </h4>
+        <div className="bg-background rounded-lg p-4 space-y-3">
+          <div className="flex justify-between items-center">
+            <span className="text-text-secondary">Current Block Height</span>
+            <span className="text-text-primary">825,445</span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-text-secondary">Network Difficulty</span>
+            <span className="text-text-primary">73.2T</span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-text-secondary">Average Block Time</span>
+            <span className="text-text-primary">10 minutes</span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-text-secondary">Mempool Size</span>
+            <span className="text-text-primary">2.4 MB</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Communication Tab Component
+const CommunicationTab = ({
+  paymentData,
+  customerMessage,
+  setCustomerMessage,
+  handleSendMessage,
+  formatDate,
+}) => {
+  return (
+    <div className="space-y-6">
+      {/* Send Message */}
+      <div>
+        <h4 className="text-lg font-medium text-text-primary mb-4">
+          Send Message to Customer
+        </h4>
+        <div className="bg-background rounded-lg p-4">
+          <div className="space-y-3">
+            <textarea
+              value={customerMessage}
+              onChange={(e) => setCustomerMessage(e.target.value)}
+              placeholder="Type your message to the customer..."
+              className="
+                w-full h-24 px-3 py-2 border border-border rounded-lg
+                text-text-primary placeholder-text-secondary
+                focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent
+                resize-none
+              "
+            />
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-text-secondary">
+                Message will be sent to {paymentData.customer.email}
+              </p>
+              <button
+                onClick={handleSendMessage}
+                disabled={!customerMessage.trim()}
+                className="
+                  flex items-center space-x-2 px-4 py-2
+                  bg-primary text-white rounded-lg
+                  hover:bg-primary-700 transition-smooth
+                  disabled:opacity-50 disabled:cursor-not-allowed
+                "
+              >
+                <Icon name="Send" size={16} color="currentColor" />
+                <span>Send Message</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Communication History */}
+      <div>
+        <h4 className="text-lg font-medium text-text-primary mb-4">
+          Communication History
+        </h4>
+        <div className="space-y-3">
+          {paymentData.communications.map((comm) => (
+            <div key={comm.id} className="bg-background rounded-lg p-4">
+              <div className="flex items-start justify-between mb-2">
+                <div className="flex items-center space-x-3">
+                  <div
+                    className={`
+                    w-8 h-8 rounded-full flex items-center justify-center
+                    ${
+                      comm.type === "email" ? "bg-primary-100" : "bg-accent-100"
+                    }
+                  `}
+                  >
+                    <Icon
+                      name={comm.type === "email" ? "Mail" : "Bell"}
+                      size={16}
+                      color={
+                        comm.type === "email"
+                          ? "var(--color-primary)"
+                          : "var(--color-accent)"
+                      }
+                    />
+                  </div>
+                  <div>
+                    <p className="font-medium text-text-primary">
+                      {comm.subject}
+                    </p>
+                    <p className="text-sm text-text-secondary">
+                      {comm.direction === "outbound"
+                        ? "Sent to customer"
+                        : "Received from customer"}
+                    </p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm text-text-secondary">
+                    {formatDate(comm.timestamp)}
+                  </p>
+                  <div
+                    className={`
+                    inline-flex items-center px-2 py-1 rounded-full text-xs font-medium mt-1
+                    ${
+                      comm.status === "delivered"
+                        ? "text-success bg-success-100"
+                        : comm.status === "read"
+                        ? "text-primary bg-primary-100"
+                        : "text-text-secondary bg-secondary-100"
+                    }
+                  `}
+                  >
+                    <Icon
+                      name={
+                        comm.status === "delivered"
+                          ? "Check"
+                          : comm.status === "read"
+                          ? "CheckCheck"
+                          : "Clock"
+                      }
+                      size={12}
+                      color="currentColor"
+                      className="mr-1"
+                    />
+                    {comm.status.charAt(0).toUpperCase() + comm.status.slice(1)}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Quick Actions */}
+      <div>
+        <h4 className="text-lg font-medium text-text-primary mb-4">
+          Quick Actions
+        </h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <button
+            className="
+            flex items-center space-x-3 p-4 border border-border rounded-lg
+            hover:bg-surface hover:border-primary transition-smooth
+            text-left
+          "
+          >
+            <Icon
+              name="Mail"
+              size={20}
+              color="currentColor"
+              className="text-primary"
+            />
+            <div>
+              <p className="font-medium text-text-primary">Send Receipt</p>
+              <p className="text-sm text-text-secondary">
+                Email transaction receipt
+              </p>
+            </div>
+          </button>
+
+          <button
+            className="
+            flex items-center space-x-3 p-4 border border-border rounded-lg
+            hover:bg-surface hover:border-primary transition-smooth
+            text-left
+          "
+          >
+            <Icon
+              name="Phone"
+              size={20}
+              color="currentColor"
+              className="text-primary"
+            />
+            <div>
+              <p className="font-medium text-text-primary">Schedule Call</p>
+              <p className="text-sm text-text-secondary">
+                Set up customer call
+              </p>
+            </div>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Refund Modal Component
+const RefundModal = ({
+  isOpen,
+  onClose,
+  onConfirm,
+  paymentData,
+  refundAmount,
+  setRefundAmount,
+  refundReason,
+  setRefundReason,
+}) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-400 flex items-center justify-center p-4">
+      <div
+        className="absolute inset-0 bg-black bg-opacity-50"
+        onClick={onClose}
+      />
+
+      <div className="relative bg-surface rounded-lg shadow-dropdown w-full max-w-md">
+        <div className="flex items-center justify-between p-6 border-b border-border">
+          <h3 className="text-lg font-semibold text-text-primary">
+            Process Refund
+          </h3>
+          <button
+            onClick={onClose}
+            className="p-1 hover:bg-secondary-100 rounded transition-smooth"
+          >
+            <Icon name="X" size={20} color="currentColor" />
+          </button>
+        </div>
+
+        <div className="p-6 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-text-secondary mb-2">
+              Refund Amount
+            </label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-secondary">
+                $
+              </span>
+              <input
+                type="number"
+                value={refundAmount}
+                onChange={(e) => setRefundAmount(e.target.value)}
+                placeholder="0.00"
+                max={paymentData.amount}
+                className="
+                  w-full pl-8 pr-4 py-2 border border-border rounded-lg
+                  text-text-primary placeholder-text-secondary
+                  focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent
+                "
+              />
+            </div>
+            <p className="text-sm text-text-secondary mt-1">
+              Maximum refundable: $
+              {paymentData.amount.toLocaleString("en-US", {
+                minimumFractionDigits: 2,
+              })}
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-text-secondary mb-2">
+              Refund Reason
+            </label>
+            <select
+              value={refundReason}
+              onChange={(e) => setRefundReason(e.target.value)}
+              className="
+                w-full px-3 py-2 border border-border rounded-lg
+                text-text-primary
+                focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent
+              "
+            >
+              <option value="">Select a reason</option>
+              <option value="customer_request">Customer Request</option>
+              <option value="duplicate_payment">Duplicate Payment</option>
+              <option value="fraudulent_transaction">
+                Fraudulent Transaction
+              </option>
+              <option value="technical_error">Technical Error</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-end space-x-3 p-6 border-t border-border">
+          <button
+            onClick={onClose}
+            className="
+              px-4 py-2 border border-border rounded-lg
+              text-text-secondary hover:text-text-primary
+              hover:bg-secondary-100 transition-smooth
+            "
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={!refundAmount || !refundReason}
+            className="
+              px-4 py-2 bg-error text-white rounded-lg
+              hover:bg-error-700 transition-smooth
+              disabled:opacity-50 disabled:cursor-not-allowed
+            "
+          >
+            Process Refund
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default PaymentDetailsModal;

@@ -1,0 +1,316 @@
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>QuantumPay</title>
+    <link rel="stylesheet" href="/css/payment1.css" />
+    <link
+      rel="stylesheet"
+      href="/css/mediaqueries/payment1_max1100.css"
+      media="only screen and (max-width: 1100px)"
+    />
+    <link
+      rel="stylesheet"
+      href="/css/mediaqueries/payment1_max900.css"
+      media="only screen and (max-width: 900px)"
+    />
+    <link
+      rel="stylesheet"
+      href="/css/mediaqueries/payment1_max400.css"
+      media="only screen and (max-width: 400px)"
+    />
+  </head>
+
+  <body>
+    <div id="logoimgdiv">
+      <a href="/"
+        ><img src="/images/Logo.webp" id="logoimg" height="40px;"
+      /></a>
+    </div>
+    <div id="amntinusd">
+      <div id="bgcoloramnt">
+        <p>Amount:</p>
+        &nbsp
+        <p><b>100</b></p>
+        &nbsp
+        <p><b>$</b></p>
+      </div>
+    </div>
+    <div id="infoformdiv">
+      <form id="pay1form" method="post">
+        <div id="info">
+          <p>Buyer Information</p>
+          <input type="text" id="fname" name="fname" placeholder="First Name" required/>
+          <input type="text" id="lname" name="lname" placeholder="Last Name" required/>
+          <input
+            type="email"
+            id="email"
+            name="email"
+            placeholder="Your Email"
+            required
+          />
+          <p></p>
+        </div>
+        <div id="container">
+          <div class="childcontainer">
+            <label for="radio-card-1" class="radio-card">
+              <input
+                type="radio"
+                name="type"
+                value="BTC"
+                id="radio-card-1"
+              />
+              <div class="card-content-wrapper">
+                <div class="card-content">
+                  <img src="/images/Coins/BTC.webp" class="coinimgs" alt="" />
+                  <p>BTC</p>
+                </div>
+              </div>
+            </label>
+          </div>
+
+          <div class="childcontainer">
+            <label for="radio-card-8" class="radio-card">
+              <input
+                type="radio"
+                name="type"
+                value="SOL"
+                id="radio-card-8"
+              />
+              <div class="card-content-wrapper">
+                <div class="card-content">
+                  <img src="/images/Coins/SOL.webp" class="coinimgs" alt="" />
+                  <p>SOL</p>
+                </div>
+              </div>
+            </label>
+          </div>
+
+          <p>ERC-20 Network Supported Tokens</p>
+          <div class="childcontainer">
+            <label for="radio-card-2" class="radio-card">
+              <input
+                type="radio"
+                name="type"
+                value="ETH"
+                id="radio-card-2"
+              />
+              <div class="card-content-wrapper">
+                <div class="card-content">
+                  <img src="/images/Coins/ETH.webp" class="coinimgs" alt="" />
+                  <p>ETH</p>
+                </div>
+              </div>
+            </label>
+          </div>
+
+          <div class="childcontainer">
+            <label for="radio-card-3" class="radio-card">
+              <input
+                type="radio"
+                name="type"
+                value="ERCUSDT"
+                id="radio-card-3"
+              />
+              <div class="card-content-wrapper">
+                <div class="card-content">
+                  <img src="/images/Coins/USDT.webp" class="coinimgs" alt="" />
+                  <p>ERC20 USDT</p>
+                </div>
+              </div>
+            </label>
+          </div>
+
+          <div class="childcontainer">
+            <label for="radio-card-13" class="radio-card">
+              <input
+                type="radio"
+                name="type"
+                value="ERCUSDC"
+                id="radio-card-13"
+              />
+              <div class="card-content-wrapper">
+                <div class="card-content">
+                  <img src="/images/Coins/USDC.PNG" class="coinimgs" alt="" />
+                  <p>ERC20 USDC</p>
+                </div>
+              </div>
+            </label>
+          </div>
+
+          <div class="childcontainer">
+            <label for="radio-card-6" class="radio-card">
+              <input
+                type="radio"
+                name="type"
+                value="DAI"
+                id="radio-card-6"
+              />
+              <div class="card-content-wrapper">
+                <div class="card-content">
+                  <img src="/images/Coins/DAI.png" class="coinimgs" alt="" />
+                  <p>DAI</p>
+                </div>
+              </div>
+            </label>
+          </div>
+
+          <p>BEP-20 Network Supported Tokens</p>
+          <div class="childcontainer">
+            <label for="radio-card-4" class="radio-card">
+              <input
+                type="radio"
+                name="type"
+                value="BNB"
+                id="radio-card-4"
+              />
+              <div class="card-content-wrapper">
+                <div class="card-content">
+                  <img src="/images/Coins/bnb.webp" class="coinimgs" alt="" />
+                  <p>BNB</p>
+                </div>
+              </div>
+            </label>
+          </div>
+
+          <div class="childcontainer">
+            <label for="radio-card-11" class="radio-card">
+              <input
+                type="radio"
+                name="type"
+                value="BEPUSDT"
+                id="radio-card-11"
+              />
+              <div class="card-content-wrapper">
+                <div class="card-content">
+                  <img src="/images/Coins/USDT.webp" class="coinimgs" alt="" />
+                  <p>BEP20 USDT</p>
+                </div>
+              </div>
+            </label>
+          </div>
+
+          <div class="childcontainer">
+            <label for="radio-card-14" class="radio-card">
+              <input
+                type="radio"
+                name="type"
+                value="BEPUSDC"
+                id="radio-card-14"
+              />
+              <div class="card-content-wrapper">
+                <div class="card-content">
+                  <img src="/images/Coins/USDC.PNG" class="coinimgs" alt="" />
+                  <p>BEP20 USDC</p>
+                </div>
+              </div>
+            </label>
+          </div>
+
+          <p>Polygon Chain Supported Tokens</p>
+          <div class="childcontainer">
+            <label for="radio-card-7" class="radio-card">
+              <input
+                type="radio"
+                name="type"
+                value="MATIC"
+                id="radio-card-7"
+              />
+              <div class="card-content-wrapper">
+                <div class="card-content">
+                  <img src="/images/Coins/MATIC.webp" class="coinimgs" alt="" />
+                  <p>MATIC</p>
+                </div>
+              </div>
+            </label>
+          </div>
+
+          <div class="childcontainer">
+            <label for="radio-card-5" class="radio-card">
+              <input
+                type="radio"
+                name="type"
+                value="POLYGONUSDT"
+                id="radio-card-5"
+              />
+              <div class="card-content-wrapper">
+                <div class="card-content">
+                  <img src="/images/Coins/USDT.webp" class="coinimgs" alt="" />
+                  <p>POLYGON USDT</p>
+                </div>
+              </div>
+            </label>
+          </div>
+
+          <div class="childcontainer">
+            <label for="radio-card-10" class="radio-card">
+              <input
+                type="radio"
+                name="type"
+                value="POLYGONUSDC"
+                id="radio-card-10"
+              />
+              <div class="card-content-wrapper">
+                <div class="card-content">
+                  <img src="/images/Coins/USDC.PNG" class="coinimgs" alt="" />
+                  <p>POLYGON USDC</p>
+                </div>
+              </div>
+            </label>
+          </div>
+
+          <p>TRC-20 Supported Tokens</p>
+          <div class="childcontainer">
+            <label for="radio-card-9" class="radio-card">
+              <input
+                type="radio"
+                name="type"
+                value="TRX"
+                id="radio-card-9"
+              />
+              <div class="card-content-wrapper">
+                <div class="card-content">
+                  <img src="/images/Coins/TRX.webp" class="coinimgs" alt="" />
+                  <p>TRX</p>
+                </div>
+              </div>
+            </label>
+          </div>
+
+          <div class="childcontainer">
+            <label for="radio-card-12" class="radio-card">
+              <input
+                type="radio"
+                name="type"
+                value="TRCUSDT"
+                id="radio-card-12"
+              />
+              <div class="card-content-wrapper">
+                <div class="card-content">
+                  <img src="/images/Coins/USDT.webp" class="coinimgs" alt="" />
+                  <p>TRC20 USDT</p>
+                </div>
+              </div>
+            </label>
+          </div>
+        </div>
+        <input type="hidden" name="api" id="hiddenApi" />
+        <input type="hidden" name="order_id" id="hiddenOrderId" />
+        <button type="submit">Complete Checkout</button>
+      </form>
+    </div>
+    <script>
+      window.addEventListener("DOMContentLoaded", () => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const api = urlParams.get("api");
+        const order_id = urlParams.get("order_id");
+        if (api) {
+          document.getElementById("hiddenApi").value = api;
+        }
+        if (order_id) {
+          document.getElementById("hiddenOrderId").value = order_id;
+        }
+      });
+    </script>
+  </body>
+</html>

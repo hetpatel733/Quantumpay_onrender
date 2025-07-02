@@ -1,0 +1,162 @@
+html, body {
+  background-color: #f9fafb;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  margin: 0;
+  padding: 0;
+}
+
+.displaynone {
+  display: none;
+}
+
+#logoimgdiv {
+  display: flex;
+  justify-content: center;
+  margin-top: 30px;
+  margin-bottom: 20px;
+}
+
+#logoimg {
+  height: 60px;
+  width: auto;
+  max-width: 220px;
+}
+
+#amntinusd {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 15px;
+}
+
+#bgcoloramnt {
+  display: flex;
+  align-items: center;
+  background-color: #d1ecf1;
+  color: #0c5460;
+  padding: 12px 25px;
+  border-radius: 12px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  font-weight: 500;
+}
+
+#bgcoloramnt p {
+  margin: 0;
+  font-size: 18px;
+}
+
+#paymentinfo {
+  max-width: 500px;
+  margin: 0 auto;
+  display: grid;
+  justify-content: center;
+  background: white;
+  padding: 30px 20px;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+#orderiddiv {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: #cce5ff;
+  border-radius: 25px;
+  padding: 10px 20px;
+  margin-bottom: 16px;
+}
+
+#orderiddiv p {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+#paymentstatus {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+#success {
+  color: green;
+  font-weight: bold;
+}
+
+#unsuccess {
+  color: #dc3545;
+  font-size: 14px;
+}
+
+#qrdiv {
+  display: flex;
+  justify-content: center;
+  margin: 20px 0;
+}
+
+#qr {
+  height: 240px;
+  width: 240px;
+  object-fit: contain;
+  border: 2px solid #eee;
+  border-radius: 12px;
+  background: white;
+}
+
+#addressdiv {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  margin-top: 25px;
+}
+
+#addressdiv input {
+  width: 260px;
+  padding: 10px 40px 10px 10px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  text-align: center;
+  font-size: 14px;
+  background-color: #f8f9fa;
+  color: #333;
+}
+
+#addressdiv button {
+  position: absolute;
+  right: calc(50% - 200px);
+  top: 2px;
+  height: 36px;
+  width: 36px;
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 18px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+  transition: background-color 0.3s ease;
+}
+
+#addressdiv button:hover {
+  background-color: #0056b3;
+}
+
+#issuediv {
+  text-align: center;
+  margin-top: 40px;
+  font-size: 14px;
+}
+
+#issuediv a {
+  text-decoration: none;
+  color: #007bff;
+  font-weight: 500;
+}
+
+#issuediv a:hover {
+  text-decoration: underline;
+}
+
+#issuediv p {
+  color: #555;
+  font-size: 12px;
+  margin: 6px 0 0 0;
+}

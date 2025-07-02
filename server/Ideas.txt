@@ -1,0 +1,18 @@
+Web Pages:-  (Finished)
+	Home (Finished)
+	Signup - Registration Type, First Name, Last Name, email, Password, confirm Password, Captcha (Finished)
+	Login - email, Password, forgotpassword, Captcha (Finished)
+	Contact Us - Email, Subject, Description (Finished)
+	Payment Gateway page (2)(Finished)
+	Business Panel
+	forgotpassword page (Future)
+	User Panel (Future)
+
+Databases:-
+	Business IDs (Finished)
+	Login Logs (Finished)
+	Payments log(Finished)
+	Completed Payment Logs (Finished)
+	Contact us Collection (Finished)
+	User Ids(Future)
+	User Payments log(future)

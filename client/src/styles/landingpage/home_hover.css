@@ -1,0 +1,38 @@
+.lay1btn:hover, .lay2btn:hover {
+    background-color: #329169;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    transition: all 0.3s ease;
+}
+
+.lay3btn:hover {
+    background-color: #1145a1;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    transition: all 0.3s ease;
+}
+
+.partnerimg:hover {
+    filter: grayscale(0%);
+    transform: scale(1.05);
+    transition: all 0.9s ease;
+}
+
+/* Enhanced hover effects for responsive design */
+@media (hover: hover) and (pointer: fine) {
+  .lay1btn, .lay2btn, .lay3btn {
+    cursor: pointer;
+  }
+}
+
+/* Disable hover effects on touch devices */
+@media (hover: none) {
+  .lay1btn:hover, .lay2btn:hover, .lay3btn:hover {
+    transform: none;
+    box-shadow: none;
+  }
+  
+  .partnerimg:hover {
+    transform: none;
+  }
+}
