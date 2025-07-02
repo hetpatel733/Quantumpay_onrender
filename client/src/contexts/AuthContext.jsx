@@ -63,7 +63,7 @@ function AuthProvider({ children }) {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000);
       
-      const response = await fetch('http://localhost:8000/api/auth/validate', {
+      const response = await fetch('/api/auth/validate', {
         method: 'GET',
         credentials: 'include',
         headers: {
@@ -303,7 +303,7 @@ export const fetchUserData = async (userId) => {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
     
-    const response = await fetch(`http://localhost:8000/api/userdata?id=${userId}`, {
+    const response = await fetch(`/api/userdata?id=${userId}`, {
       method: 'GET',
       credentials: 'include',
       headers: {
