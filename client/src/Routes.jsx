@@ -54,7 +54,7 @@ const DashboardDataProvider = ({ children, userData: authUserData }) => {
       setIsLoadingUserData(true);
       console.log(`🚀 REQUEST SENT: Fetching complete user data from localhost:8000/api/userdata for ID: ${userId}`);
       
-      const response = await fetch(`http://localhost:8000/api/userdata?id=${userId}`, {
+      const response = await fetch(`/api/userdata?id=${userId}`, {
         method: 'GET',
         credentials: 'include',
         headers: {
@@ -78,7 +78,7 @@ const DashboardDataProvider = ({ children, userData: authUserData }) => {
       const data = await response.json();
       
       if (data.success) {
-        console.log('Complete user data received from localhost:8000:', data.userData);
+        console.log('Complete user data received from api/userdata/:', data.userData);
         setCompleteUserData(data.userData);
         setUserDataError(null);
         return data.userData;
