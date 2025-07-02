@@ -34,7 +34,7 @@ const Login = () => {
     try {
       console.log("🚀 REQUEST SENT: Login request to localhost:8000/login", credentials);
 
-      const response = await fetch("http://localhost:8000/api/login", {
+      const response = await fetch("/api/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
