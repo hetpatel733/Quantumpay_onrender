@@ -102,7 +102,7 @@ const Signup = () => {
     setIsSubmitting(true);
     setError("");
     try {
-      const response = await fetch("http://localhost:8000/api/signup", {
+      const response = await fetch("/api/signup", {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
