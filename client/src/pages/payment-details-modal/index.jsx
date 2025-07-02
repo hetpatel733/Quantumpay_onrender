@@ -20,7 +20,7 @@ const PaymentDetailsModal = () => {
     const fetchPayment = async () => {
       try {
         const response = await fetch(
-          `http://localhost:8000/api/paymentinfo?id=${id}`,
+          `/api/paymentinfo?id=${id}`,
           {
             method: "GET",
             credentials: "include",
