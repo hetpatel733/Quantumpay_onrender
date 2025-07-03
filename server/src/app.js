@@ -82,7 +82,7 @@ app.post("/api/login", async (req, res) => {
   utility.login(req, res);
 });
 
-app.post("/signup", async (req, res) => {
+app.post("api/signup", async (req, res) => {
   utility.signup(req, res, app);
 });
 
