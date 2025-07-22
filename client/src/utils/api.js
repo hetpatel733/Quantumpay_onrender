@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:8000';
+const API_BASE_URL = import.meta.env.VITE_SERVER_URL || '';
 
 // Helper function to get auth token
 const getAuthToken = () => {
