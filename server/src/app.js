@@ -83,7 +83,7 @@ app.use(express.urlencoded({ extended: false })); // To parse URL-encoded bodies
 app.use(cookieParser()); // To parse cookies
 
 // Serve static files for the React app
-app.use(express.static(path.join(__dirname, "../../client/build")));
+app.use(express.static(path.join(__dirname, "../../client/dist")));
 
 // ----------------------------------
 //         CORE & API ROUTES
@@ -121,11 +121,6 @@ app.post("/api/payment/coinselect", (req, res) => {
     CoinselectFunction(req, res);
 });
 
-// Legacy payment processing route
-app.get("/api/payment/final-payment", (req, res) => {
-    res.sendFile(path.join(__dirname, "../../client/build", "index.html"));
-});
-
 // ----------------------------------
 //         ERROR & CATCH-ALL
 // ----------------------------------
@@ -139,7 +134,7 @@ app.use('/api/*', (req, res) => {
 
 // Catch-all handler: Forwards all other requests to the React app
 app.get("*", (req, res) => {
-    res.sendFile(path.join(__dirname, "../../client/build", "index.html"));
+    res.sendFile(path.join(__dirname, "../../client/dist", "index.html"));
 });
 
 // ----------------------------------
