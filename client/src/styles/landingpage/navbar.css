@@ -46,6 +46,7 @@ body {
 
 nav a, nav a:hover, nav a:visited, nav a:active {
   text-decoration: none !important;
+  color: inherit;
 }
 
 /* Enhanced navbar styles */

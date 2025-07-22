@@ -50,3 +50,4 @@ const LandingLayout = () => {
 };
 
 export default LandingLayout;
+// No font <link> tags needed, global font is set

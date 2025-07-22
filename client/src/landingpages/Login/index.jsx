@@ -4,6 +4,8 @@ import { AuthContext } from "../../contexts/AuthContext";
 import Navbar from "../navbar";
 import Footer from "../footer";
 
+const server = import.meta.env.VITE_SERVER_URL || "http://localhost:8000";
+
 const Login = () => {
   const navigate = useNavigate();
   const { handleLoginSuccess, isAuthenticated, isLoading } = useContext(AuthContext);
@@ -32,30 +34,50 @@ const Login = () => {
 
   const authenticateUser = async (credentials) => {
     try {
-      console.log("🚀 REQUEST SENT: Login request to localhost:8000/login", credentials);
+      console.log("🚀 REQUEST SENT: Login request to", `${server}/api/auth/login`);
+      console.log("Credentials:", { email: credentials.email, password: "[HIDDEN]" });
 
-      const response = await fetch("/api/login", {
+      const response = await fetch(`${server}/api/auth/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "Accept": "application/json",
         },
         credentials: "include", // Include cookies
         body: JSON.stringify(credentials),
       });
 
-      console.log(`✅ RESPONSE RECEIVED: localhost:8000/api/login - Status: ${response.status}`);
-      console.log("Response headers:", response.headers);
+      console.log(`✅ RESPONSE RECEIVED: Status ${response.status}`);
+
+      // Handle different HTTP status codes
+      if (!response.ok) {
+        let errorMessage = "Login failed";
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorMessage;
+        } catch (parseError) {
+          // If JSON parsing fails, use status text
+          errorMessage = response.statusText || errorMessage;
+        }
+        throw new Error(errorMessage);
+      }
 
       const data = await response.json();
-      console.log("Response data:", data);
-
-      if (!response.ok) {
-        throw new Error(data.message || "Login failed");
-      }
+      console.log("Login response data:", {
+        success: data.success,
+        hasToken: !!data.token,
+        hasUser: !!data.user
+      });
 
       return data;
     } catch (error) {
-      console.error("❌ ERROR: Authentication failed:", error);
+      console.error("❌ ERROR: Authentication request failed:", error);
+      
+      // Handle network errors specifically
+      if (error.name === 'TypeError' && error.message.includes('fetch')) {
+        throw new Error("Cannot connect to server. Please check if the server is running.");
+      }
+      
       throw new Error(error.message || "Network error occurred");
     }
   };
@@ -69,6 +91,13 @@ const Login = () => {
       return;
     }
 
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      setError("Please enter a valid email address");
+      return;
+    }
+
     setIsSubmitting(true);
     setError("");
 
@@ -76,24 +105,28 @@ const Login = () => {
       console.log("Starting login process...");
       const result = await authenticateUser(formData);
 
-      console.log("Login result:", result);
-
-      if (result.success && result.token) {
-        console.log("Login successful, checking cookies...");
-        console.log("All cookies after login:", document.cookie);
+      if (result.success && result.token && result.user) {
+        console.log("✅ Login successful!");
+        
+        // Store token in localStorage as backup
+        localStorage.setItem("authToken", result.token);
+        localStorage.setItem("userData", JSON.stringify(result.user));
+        
+        console.log("Cookies after login:", document.cookie);
         
         // Update auth context with user data
         handleLoginSuccess(result.user, result.token);
         
-        // Small delay to ensure state updates
-        setTimeout(() => {
-          navigate("/dashboard", { replace: true });
-        }, 100);
+        console.log("Redirecting to dashboard...");
+        
+        // Navigate to dashboard
+        navigate("/dashboard", { replace: true });
       } else {
-        throw new Error(result.message || "Login failed");
+        console.error("Login response missing required data:", result);
+        throw new Error(result.message || "Invalid login response from server");
       }
     } catch (error) {
-      console.error("❌ ERROR: Login process failed:", error);
+      console.error("❌ LOGIN ERROR:", error);
       setError(error.message);
     } finally {
       setIsSubmitting(false);
@@ -106,7 +139,7 @@ const Login = () => {
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center space-y-4">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-          <div className="text-lg">Loading...</div>
+          <div className="text-lg">Checking authentication...</div>
         </div>
       </div>
     );
@@ -115,13 +148,6 @@ const Login = () => {
   return (
     <>
       <Navbar />
-      {/* fonts */}
-      <link rel="preconnect" href="https://fonts.googleapis.com" />
-      <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
-      <link
-        href="https://fonts.googleapis.com/css2?family=Raleway&display=swap"
-        rel="stylesheet"
-      />
       <div className="maincontainer">
         <form
           className="LoginForm"
@@ -130,22 +156,25 @@ const Login = () => {
           onSubmit={handleSubmit}
         >
           <h1 className="loginhead">Login</h1>
-          <div className={`issueelement ${error ? "" : "displaynone"}`}>
-            <p className="issueelementp">{error}</p>
-          </div>
+          {error && (
+            <div className="issueelement">
+              <p className="issueelementp">{error}</p>
+            </div>
+          )}
           <div className="formcontainer">
             <div className="formelements">
-              <label htmlFor="emailoruname">Email:</label>
+              <label htmlFor="email">Email:</label>
               <br />
               <input
-                type="text"
+                type="email"
                 placeholder="Enter Email"
                 name="email"
                 className="email"
                 value={formData.email}
                 onChange={handleInputChange}
-                required=""
+                required
                 disabled={isSubmitting}
+                autoComplete="email"
               />
             </div>
             <div className="formelements">
@@ -158,8 +187,9 @@ const Login = () => {
                 name="password"
                 value={formData.password}
                 onChange={handleInputChange}
-                required=""
+                required
                 disabled={isSubmitting}
+                autoComplete="current-password"
               />
             </div>
             <a href="#">Forgot Password?</a>

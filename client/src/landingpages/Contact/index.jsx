@@ -2,12 +2,13 @@ import React, { useState } from "react";
 import Navbar from "../navbar";
 import Footer from "../footer";
 import "../../styles/landingpage/contact.css";
+const server = import.meta.env.VITE_SERVER_URL || "";
 
 const Contact = () => {
   const [formData, setFormData] = useState({
     email: "",
     subject: "",
-    comment: ""
+    comment: "",
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -15,9 +16,9 @@ const Contact = () => {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      [name]: value
+      [name]: value,
     }));
     setError("");
     setSuccessMsg("");
@@ -29,13 +30,13 @@ const Contact = () => {
     setError("");
     setSuccessMsg("");
     try {
-      const response = await fetch("/api/contact", {
+      const response = await fetch(`${server}/api/contact`, {
         method: "POST",
         headers: {
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
         },
         credentials: "include",
-        body: JSON.stringify(formData)
+        body: JSON.stringify(formData),
       });
       const data = await response.json();
       if (!response.ok || !data.success) {
@@ -53,22 +54,19 @@ const Contact = () => {
 
   return (
     <>
-      <Navbar />      
+      <Navbar />
       {/* fonts */}
-      <link rel="preconnect" href="https://fonts.googleapis.com" />
-      <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
-      <link
-        href="https://fonts.googleapis.com/css2?family=Raleway&display=swap"
-        rel="stylesheet"
-      />
-      
+      {/* Remove font <link> tags, global font is set */}
       <div className="maincontainer">
         <form method="post" onSubmit={handleSubmit}>
           <h1 className="loginhead">Contact Us</h1>
           <div className={`issueelement ${error ? "" : "displaynone"}`}>
             <p className="issueelementp">{error}</p>
           </div>
-          <div className={`issueelement ${successMsg ? "" : "displaynone"}`} style={{ color: "green" }}>
+          <div
+            className={`issueelement ${successMsg ? "" : "displaynone"}`}
+            style={{ color: "green" }}
+          >
             <p className="issueelementp">{successMsg}</p>
           </div>
           <div className="formcontainer">

@@ -1,4 +1,4 @@
-const { loginlog, accounts } = require("../models/account");
+const { User } = require("../models/User");
 const jwt = require("jsonwebtoken");
 
 // Load secret from .env or use a fallback
@@ -11,7 +11,7 @@ const login = async (req, res) => {
         const { email, password } = req.body;
 
         // Check if email exists
-        const user = await accounts.findOne({ email });
+        const user = await User.findOne({ email });
         if (!user) {
             console.log("User not found for email:", email);
             console.log("📤 RESPONSE SENT: User not found - Status: 401");
@@ -22,7 +22,7 @@ const login = async (req, res) => {
         }
 
         // Check if password matches
-        if (user.password !== password) {
+        if (user.passwordHash !== password) {
             console.log("Password mismatch for user:", email);
             console.log("📤 RESPONSE SENT: Password mismatch - Status: 401");
             return res.status(401).json({
@@ -66,7 +66,8 @@ const login = async (req, res) => {
             token: token,
             user: {
                 id: user._id,
-                email: user.email
+                email: user.email,
+                type: user.type
             }
         };
 
@@ -143,9 +144,6 @@ const validateToken = async (req, res) => {
 const getUserData = async (req, res) => {
     try {
         console.log("🔍 REQUEST RECEIVED: Get user data for ID:", req.query.id);
-        console.log("Full query object:", req.query);
-        console.log("Request method:", req.method);
-        console.log("Request URL:", req.url);
         
         const { id } = req.query;
         
@@ -167,7 +165,7 @@ const getUserData = async (req, res) => {
         }
 
         // Find user in database with complete information
-        const user = await accounts.findById(id).select('-password -token'); // Exclude sensitive fields
+        const user = await User.findById(id).select('-passwordHash -token'); // Exclude sensitive fields
         if (!user) {
             console.log("📤 RESPONSE SENT: User not found - Status: 404");
             return res.status(404).json({
@@ -185,16 +183,16 @@ const getUserData = async (req, res) => {
             userData: {
                 id: user._id,
                 email: user.email,
-                uname: user.uname || user.name || 'User',
-                type: user.type || 'personal',
+                name: user.name,
+                businessName: user.businessName || user.name,
+                type: user.type || 'customer',
                 verified: user.verified || false,
-                name: user.name || user.uname || 'User',
-                businessName: user.businessName || user.uname || 'User Business',
-                phone: user.phone || '',
+                phoneNumber: user.phoneNumber || '',
                 website: user.website || '',
                 businessType: user.businessType || 'E-commerce',
                 country: user.country || 'United States',
-                timezone: user.timezone || 'America/New_York'
+                timeZone: user.timeZone || 'America/New_York',
+                description: user.description || ''
             }
         });
 

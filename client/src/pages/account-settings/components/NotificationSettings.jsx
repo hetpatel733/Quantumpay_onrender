@@ -1,59 +1,64 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Icon from 'components/AppIcon';
+import { notificationSettingsAPI } from 'utils/api';
 
 const NotificationSettings = () => {
   const [emailNotifications, setEmailNotifications] = useState({
-    paymentReceived: true,
-    paymentFailed: true,
-    dailySummary: true,
+    paymentReceived: false,
+    paymentFailed: false,
+    dailySummary: false,
     weeklySummary: false,
-    securityAlerts: true,
+    securityAlerts: false,
     systemUpdates: false,
     marketingEmails: false
   });
 
-  const [webhookSettings, setWebhookSettings] = useState({
-    enabled: true,
-    url: 'https://api.acme.com/webhooks/cryptopay',
-    secret: 'whsec_1234567890abcdef',
-    events: {
-      paymentCompleted: true,
-      paymentFailed: true,
-      paymentPending: false,
-      refundProcessed: true,
-      disputeCreated: false
-    }
-  });
-
   const [pushNotifications, setPushNotifications] = useState({
-    enabled: true,
-    paymentAlerts: true,
-    securityAlerts: true,
+    enabled: false,
+    paymentAlerts: false,
+    securityAlerts: false,
     systemAlerts: false
   });
+
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
+  const [successMessage, setSuccessMessage] = useState('');
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+
+  // Load settings on component mount
+  useEffect(() => {
+    fetchSettings();
+  }, []);
+
+  const fetchSettings = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const response = await notificationSettingsAPI.getSettings();
+      
+      if (response.success) {
+        setEmailNotifications(response.settings.emailNotifications);
+        setPushNotifications(response.settings.pushNotifications);
+        setHasUnsavedChanges(false);
+      } else {
+        setError(response.message || 'Failed to load notification settings');
+      }
+    } catch (err) {
+      console.error('Error fetching notification settings:', err);
+      setError('Failed to load notification settings');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleEmailToggle = (setting) => {
     setEmailNotifications(prev => ({
       ...prev,
       [setting]: !prev[setting]
     }));
-  };
-
-  const handleWebhookToggle = (setting) => {
-    if (setting === 'enabled') {
-      setWebhookSettings(prev => ({
-        ...prev,
-        enabled: !prev.enabled
-      }));
-    } else {
-      setWebhookSettings(prev => ({
-        ...prev,
-        events: {
-          ...prev.events,
-          [setting]: !prev.events[setting]
-        }
-      }));
-    }
+    setHasUnsavedChanges(true);
   };
 
   const handlePushToggle = (setting) => {
@@ -61,22 +66,65 @@ const NotificationSettings = () => {
       ...prev,
       [setting]: !prev[setting]
     }));
+    setHasUnsavedChanges(true);
   };
 
-  const handleWebhookUrlChange = (field, value) => {
-    setWebhookSettings(prev => ({
-      ...prev,
-      [field]: value
-    }));
+  const saveSettings = async () => {
+    try {
+      setSaving(true);
+      setError(null);
+
+      const response = await notificationSettingsAPI.updateSettings({
+        emailNotifications,
+        pushNotifications
+      });
+
+      if (response.success) {
+        setSuccessMessage('Notification settings saved successfully');
+        setHasUnsavedChanges(false);
+        setTimeout(() => setSuccessMessage(''), 3000);
+      } else {
+        setError(response.message || 'Failed to save notification settings');
+      }
+    } catch (err) {
+      console.error('Error saving notification settings:', err);
+      setError('Failed to save notification settings');
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const testWebhook = () => {
-    console.log('Testing webhook endpoint...');
+  const resetToDefaults = async () => {
+    try {
+      setSaving(true);
+      setError(null);
+
+      const response = await notificationSettingsAPI.resetSettings();
+
+      if (response.success) {
+        setEmailNotifications(response.settings.emailNotifications);
+        setPushNotifications(response.settings.pushNotifications);
+        setSuccessMessage('Settings reset to defaults');
+        setHasUnsavedChanges(false);
+        setTimeout(() => setSuccessMessage(''), 3000);
+      } else {
+        setError(response.message || 'Failed to reset settings');
+      }
+    } catch (err) {
+      console.error('Error resetting settings:', err);
+      setError('Failed to reset settings');
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const copyWebhookSecret = () => {
-    navigator.clipboard.writeText(webhookSettings.secret);
-  };
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -84,9 +132,28 @@ const NotificationSettings = () => {
       <div>
         <h2 className="text-2xl font-bold text-text-primary">Notification Settings</h2>
         <p className="text-text-secondary mt-1">
-          Configure email alerts, webhook endpoints, and push notification preferences
+          Configure your email and push notification preferences
         </p>
       </div>
+
+      {/* Success/Error Messages */}
+      {successMessage && (
+        <div className="bg-success-50 border border-success-200 rounded-lg p-4">
+          <div className="flex items-center space-x-2">
+            <Icon name="CheckCircle" size={16} color="#10b981" />
+            <p className="text-sm text-success-700">{successMessage}</p>
+          </div>
+        </div>
+      )}
+
+      {error && (
+        <div className="bg-error-50 border border-error-200 rounded-lg p-4">
+          <div className="flex items-center space-x-2">
+            <Icon name="AlertCircle" size={16} color="#ef4444" />
+            <p className="text-sm text-error-700">{error}</p>
+          </div>
+        </div>
+      )}
 
       {/* Email Notifications */}
       <div className="bg-surface rounded-lg border border-border p-6">
@@ -291,125 +358,6 @@ const NotificationSettings = () => {
         </div>
       </div>
 
-      {/* Webhook Settings */}
-      <div className="bg-surface rounded-lg border border-border p-6">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h3 className="text-lg font-semibold text-text-primary">Webhook Configuration</h3>
-            <p className="text-text-secondary text-sm mt-1">
-              Configure webhook endpoints for real-time event notifications
-            </p>
-          </div>
-          <button
-            onClick={() => handleWebhookToggle('enabled')}
-            className={`
-              relative inline-flex h-6 w-11 items-center rounded-full transition-smooth
-              ${webhookSettings.enabled ? 'bg-success' : 'bg-secondary-300'}
-            `}
-          >
-            <span
-              className={`
-                inline-block h-4 w-4 transform rounded-full bg-white transition-smooth
-                ${webhookSettings.enabled ? 'translate-x-6' : 'translate-x-1'}
-              `}
-            />
-          </button>
-        </div>
-
-        {webhookSettings.enabled && (
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-text-secondary mb-2">
-                Webhook URL
-              </label>
-              <div className="flex items-center space-x-2">
-                <input
-                  type="url"
-                  value={webhookSettings.url}
-                  onChange={(e) => handleWebhookUrlChange('url', e.target.value)}
-                  className="
-                    flex-1 px-3 py-2 border border-border rounded-lg
-                    focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent
-                    text-text-primary bg-background font-mono text-sm
-                  "
-                  placeholder="https://your-domain.com/webhook"
-                />
-                <button
-                  onClick={testWebhook}
-                  className="
-                    px-4 py-2 border border-border rounded-lg
-                    text-text-secondary hover:text-text-primary
-                    hover:bg-secondary-100 transition-smooth
-                    flex items-center space-x-2
-                  "
-                >
-                  <Icon name="Zap" size={16} color="currentColor" />
-                  <span>Test</span>
-                </button>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-text-secondary mb-2">
-                Webhook Secret
-              </label>
-              <div className="flex items-center space-x-2">
-                <input
-                  type="text"
-                  value={webhookSettings.secret}
-                  onChange={(e) => handleWebhookUrlChange('secret', e.target.value)}
-                  className="
-                    flex-1 px-3 py-2 border border-border rounded-lg
-                    focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent
-                    text-text-primary bg-background font-mono text-sm
-                  "
-                  placeholder="Webhook signing secret"
-                />
-                <button
-                  onClick={copyWebhookSecret}
-                  className="
-                    p-2 border border-border rounded-lg
-                    hover:bg-secondary-100 transition-smooth
-                    text-text-secondary hover:text-text-primary
-                  "
-                >
-                  <Icon name="Copy" size={16} color="currentColor" />
-                </button>
-              </div>
-            </div>
-
-            <div>
-              <h4 className="font-medium text-text-primary mb-3">Webhook Events</h4>
-              <div className="space-y-3">
-                {Object.entries(webhookSettings.events).map(([event, enabled]) => (
-                  <div key={event} className="flex items-center justify-between">
-                    <div>
-                      <label className="block text-sm font-medium text-text-primary">
-                        {event.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
-                      </label>
-                    </div>
-                    <button
-                      onClick={() => handleWebhookToggle(event)}
-                      className={`
-                        relative inline-flex h-6 w-11 items-center rounded-full transition-smooth
-                        ${enabled ? 'bg-success' : 'bg-secondary-300'}
-                      `}
-                    >
-                      <span
-                        className={`
-                          inline-block h-4 w-4 transform rounded-full bg-white transition-smooth
-                          ${enabled ? 'translate-x-6' : 'translate-x-1'}
-                        `}
-                      />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-
       {/* Push Notifications */}
       <div className="bg-surface rounded-lg border border-border p-6">
         <div className="flex items-center justify-between mb-4">
@@ -517,22 +465,46 @@ const NotificationSettings = () => {
 
       {/* Save Changes */}
       <div className="flex justify-end space-x-3">
-        <button className="
-          px-4 py-2 border border-border rounded-lg
-          text-text-secondary hover:text-text-primary
-          hover:bg-secondary-100 transition-smooth
-        ">
+        <button 
+          onClick={resetToDefaults}
+          disabled={saving}
+          className="
+            px-4 py-2 border border-border rounded-lg
+            text-text-secondary hover:text-text-primary
+            hover:bg-secondary-100 transition-smooth
+            disabled:opacity-50 disabled:cursor-not-allowed
+          "
+        >
           Reset to Defaults
         </button>
-        <button className="
-          px-6 py-2 bg-primary text-white rounded-lg
-          hover:bg-primary-700 transition-smooth
-          flex items-center space-x-2
-        ">
+        <button 
+          onClick={saveSettings}
+          disabled={saving}
+          className={`
+            px-6 py-2 rounded-lg transition-smooth
+            flex items-center space-x-2
+            disabled:opacity-50 disabled:cursor-not-allowed
+            ${hasUnsavedChanges 
+              ? 'bg-warning text-white hover:bg-warning-700' 
+              : 'bg-primary text-white hover:bg-primary-700'
+            }
+          `}
+        >
+          {saving && <Icon name="Loader2" size={16} color="currentColor" className="animate-spin" />}
           <Icon name="Save" size={16} color="currentColor" />
-          <span>Save Preferences</span>
+          <span>
+            {saving ? 'Saving...' : hasUnsavedChanges ? 'Save Changes*' : 'Save Settings'}
+          </span>
         </button>
       </div>
+
+      {hasUnsavedChanges && (
+        <div className="bg-warning-50 border border-warning-200 rounded-lg p-3">
+          <p className="text-sm text-warning-700">
+            * You have unsaved changes. Click "Save Changes" to apply them.
+          </p>
+        </div>
+      )}
     </div>
   );
 };

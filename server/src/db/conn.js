@@ -4,7 +4,7 @@ const MONGO_URI = process.env.MONGO_URI;
 function mongooconnect() {
     mongoose.connect(MONGO_URI, {
         useNewUrlParser: true,
-        UseUnifiedTopology: true,
+        useUnifiedTopology : true,
     }
     ).then(() => {
         console.log("Connection Success");

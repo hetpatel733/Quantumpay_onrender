@@ -18,7 +18,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     async function checkPaymentStatus(payid) {
         try {
-            const res = await fetch(`/api/check-status?payid=${encodeURIComponent(payid)}`);
+            const res = await fetch(`/api/payment/check-status?payid=${encodeURIComponent(payid)}`);
             const data = await res.json();
 
             if (data.success) {

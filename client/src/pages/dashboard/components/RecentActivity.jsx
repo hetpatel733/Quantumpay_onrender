@@ -1,60 +1,49 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import Icon from 'components/AppIcon';
+import { dashboardAPI } from 'utils/api';
 
-const RecentActivity = () => {
-  const [recentTransactions] = useState([
-    {
-      id: 'PAY_2024_001234',
-      customer: 'Acme Corporation',
-      amount: 1250.00,
-      cryptocurrency: 'Bitcoin',
-      cryptoAmount: 0.03245,
-      status: 'completed',
-      timestamp: new Date(Date.now() - 300000), // 5 minutes ago
-      avatar: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=40&h=40&fit=crop&crop=face'
-    },
-    {
-      id: 'PAY_2024_001235',
-      customer: 'TechStart Inc.',
-      amount: 850.75,
-      cryptocurrency: 'Ethereum',
-      cryptoAmount: 0.4521,
-      status: 'pending',
-      timestamp: new Date(Date.now() - 900000), // 15 minutes ago
-      avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=40&h=40&fit=crop&crop=face'
-    },
-    {
-      id: 'PAY_2024_001236',
-      customer: 'Global Solutions Ltd',
-      amount: 2100.00,
-      cryptocurrency: 'USDT',
-      cryptoAmount: 2100.00,
-      status: 'completed',
-      timestamp: new Date(Date.now() - 1800000), // 30 minutes ago
-      avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=40&h=40&fit=crop&crop=face'
-    },
-    {
-      id: 'PAY_2024_001237',
-      customer: 'Digital Ventures',
-      amount: 675.25,
-      cryptocurrency: 'Bitcoin',
-      cryptoAmount: 0.01852,
-      status: 'failed',
-      timestamp: new Date(Date.now() - 2700000), // 45 minutes ago
-      avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=40&h=40&fit=crop&crop=face'
-    },
-    {
-      id: 'PAY_2024_001238',
-      customer: 'Innovation Hub',
-      amount: 1800.50,
-      cryptocurrency: 'Ethereum',
-      cryptoAmount: 0.9876,
-      status: 'completed',
-      timestamp: new Date(Date.now() - 3600000), // 1 hour ago
-      avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=40&h=40&fit=crop&crop=face'
-    }
-  ]);
+const RecentActivity = ({ onPaymentStatusChange }) => {
+  const [recentTransactions, setRecentTransactions] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // Fetch real recent activity data
+  useEffect(() => {
+    const fetchRecentActivity = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        const response = await dashboardAPI.getRecentActivity(5);
+        
+        if (response.success) {
+          setRecentTransactions(response.recentActivity || []);
+        } else {
+          throw new Error(response.message || 'Failed to fetch recent activity');
+        }
+      } catch (err) {
+        console.error('Error fetching recent activity:', err);
+        setError('Failed to load recent activity');
+        setRecentTransactions([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchRecentActivity();
+
+    // Auto-refresh every 20 seconds
+    const interval = setInterval(() => {
+      fetchRecentActivity();
+      // Notify parent component to refresh dashboard metrics
+      if (onPaymentStatusChange) {
+        onPaymentStatusChange();
+      }
+    }, 20000);
+    
+    return () => clearInterval(interval);
+  }, [onPaymentStatusChange]);
 
   const getStatusConfig = (status) => {
     switch (status) {
@@ -90,13 +79,16 @@ const RecentActivity = () => {
   };
 
   const getCryptoIcon = (crypto) => {
-    switch (crypto.toLowerCase()) {
-      case 'bitcoin':
+    switch (crypto?.toLowerCase()) {
+      case 'btc':
         return 'Bitcoin';
-      case 'ethereum':
-        return 'Zap'; // Using Zap as placeholder for Ethereum
+      case 'eth':
+        return 'Zap';
       case 'usdt':
+      case 'pyusd':
         return 'DollarSign';
+      case 'matic':
+        return 'Triangle';
       default:
         return 'Coins';
     }
@@ -104,7 +96,8 @@ const RecentActivity = () => {
 
   const formatTimeAgo = (timestamp) => {
     const now = new Date();
-    const diffInMinutes = Math.floor((now - timestamp) / (1000 * 60));
+    const date = new Date(timestamp);
+    const diffInMinutes = Math.floor((now - date) / (1000 * 60));
     
     if (diffInMinutes < 1) return 'Just now';
     if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
@@ -116,10 +109,36 @@ const RecentActivity = () => {
     return `${diffInDays}d ago`;
   };
 
+  const generateCustomerAvatar = (customerName, customerEmail) => {
+    // Generate a consistent color based on customer name/email
+    const colors = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#06B6D4'];
+    const hash = (customerName || customerEmail).split('').reduce((a, b) => {
+      a = ((a << 5) - a) + b.charCodeAt(0);
+      return a & a;
+    }, 0);
+    const color = colors[Math.abs(hash) % colors.length];
+    
+    const initials = customerName 
+      ? customerName.split(' ').map(n => n[0]).join('').substring(0, 2)
+      : (customerEmail ? customerEmail.substring(0, 2) : '??');
+    
+    return { color, initials: initials.toUpperCase() };
+  };
+
   const handleTransactionClick = (transactionId) => {
-    // Navigate to payment details with from parameter to know where to return
     window.location.href = `/dashboard/payment-details-modal?id=${transactionId}&from=dashboard`;
   };
+
+  if (loading) {
+    return (
+      <div className="bg-surface border border-border rounded-lg p-6">
+        <div className="flex items-center justify-center py-8">
+          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+          <span className="ml-3 text-text-secondary">Loading recent activity...</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-surface border border-border rounded-lg p-6">
@@ -141,9 +160,19 @@ const RecentActivity = () => {
         </Link>
       </div>
 
+      {error && (
+        <div className="bg-error-50 border border-error-200 rounded-lg p-4 mb-4">
+          <div className="flex items-center space-x-2">
+            <Icon name="AlertCircle" size={16} color="var(--color-error)" />
+            <p className="text-error text-sm">{error}</p>
+          </div>
+        </div>
+      )}
+
       <div className="space-y-4">
         {recentTransactions.map((transaction) => {
           const statusConfig = getStatusConfig(transaction.status);
+          const avatar = generateCustomerAvatar(transaction.customer, transaction.customerEmail);
           
           return (
             <div
@@ -153,25 +182,16 @@ const RecentActivity = () => {
                 flex items-center space-x-4 p-4 rounded-lg
                 hover:bg-background transition-smooth cursor-pointer
                 border border-transparent hover:border-border
+                group
               "
             >
               {/* Customer Avatar */}
               <div className="flex-shrink-0">
-                <div className="w-10 h-10 rounded-full overflow-hidden bg-secondary-100">
-                  <img
-                    src={transaction.avatar}
-                    alt={transaction.customer}
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      e.target.style.display = 'none';
-                      e.target.nextSibling.style.display = 'flex';
-                    }}
-                  />
-                  <div className="w-full h-full bg-primary rounded-full flex items-center justify-center" style={{ display: 'none' }}>
-                    <span className="text-white text-sm font-medium">
-                      {transaction.customer.split(' ').map(n => n[0]).join('')}
-                    </span>
-                  </div>
+                <div 
+                  className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-medium"
+                  style={{ backgroundColor: avatar.color }}
+                >
+                  {avatar.initials}
                 </div>
               </div>
 
@@ -188,7 +208,7 @@ const RecentActivity = () => {
                       color="var(--color-text-secondary)"
                     />
                     <span className="text-text-primary font-medium">
-                      ${transaction.amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                      ${transaction.amount?.toLocaleString('en-US', { minimumFractionDigits: 2 }) || '0.00'}
                     </span>
                   </div>
                 </div>
@@ -196,7 +216,7 @@ const RecentActivity = () => {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
                     <span className="text-text-secondary text-sm">
-                      {transaction.cryptoAmount} {transaction.cryptocurrency}
+                      {transaction.cryptoAmount} {transaction.cryptoSymbol}
                     </span>
                     <span className="text-text-secondary text-sm">•</span>
                     <span className="text-text-secondary text-sm">
@@ -233,8 +253,8 @@ const RecentActivity = () => {
         })}
       </div>
 
-      {/* Empty State (if no transactions) */}
-      {recentTransactions.length === 0 && (
+      {/* Empty State */}
+      {!loading && !error && recentTransactions.length === 0 && (
         <div className="text-center py-12">
           <div className="w-16 h-16 bg-secondary-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <Icon name="Activity" size={32} color="var(--color-text-secondary)" />
@@ -244,7 +264,7 @@ const RecentActivity = () => {
             Your recent transactions will appear here once you start processing payments.
           </p>
           <Link
-            to="/payments-management"
+            to="/dashboard/payments-management"
             className="
               inline-flex items-center space-x-2 px-4 py-2
               bg-primary text-white rounded-lg
@@ -253,7 +273,7 @@ const RecentActivity = () => {
             "
           >
             <Icon name="Plus" size={16} color="currentColor" />
-            <span>Create Payment</span>
+            <span>View Payments</span>
           </Link>
         </div>
       )}

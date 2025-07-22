@@ -2,110 +2,215 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import Icon from 'components/AppIcon';
+import { dashboardAPI } from 'utils/api';
+import { debounce } from 'components/lib/utils';
 
 import RecentActivity from './components/RecentActivity';
 
 const Dashboard = () => {
   const [selectedPeriod, setSelectedPeriod] = useState('30');
-  const [metrics, setMetrics] = useState({
-    totalPayments: 15847.50,
-    pendingTransactions: 23,
-    completedVolume: 142350.75,
-    failedPayments: 8
-  });
+  const [dashboardData, setDashboardData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [isPaymentLinkModalOpen, setIsPaymentLinkModalOpen] = useState(false);
+  const [orderIdInput, setOrderIdInput] = useState('');
+  const [orderIdError, setOrderIdError] = useState('');
 
-  // Mock chart data for payment trends
-  const chartData = {
-    '7': [
-      { name: 'Mon', BTC: 2400, ETH: 1800, USDT: 3200 },
-      { name: 'Tue', BTC: 1398, ETH: 2200, USDT: 2800 },
-      { name: 'Wed', BTC: 9800, ETH: 1600, USDT: 4100 },
-      { name: 'Thu', BTC: 3908, ETH: 2400, USDT: 3600 },
-      { name: 'Fri', BTC: 4800, ETH: 1900, USDT: 3900 },
-      { name: 'Sat', BTC: 3800, ETH: 2100, USDT: 3400 },
-      { name: 'Sun', BTC: 4300, ETH: 1700, USDT: 3100 }
-    ],
-    '30': [
-      { name: 'Week 1', BTC: 24000, ETH: 18000, USDT: 32000 },
-      { name: 'Week 2', BTC: 13980, ETH: 22000, USDT: 28000 },
-      { name: 'Week 3', BTC: 98000, ETH: 16000, USDT: 41000 },
-      { name: 'Week 4', BTC: 39080, ETH: 24000, USDT: 36000 }
-    ],
-    '90': [
-      { name: 'Month 1', BTC: 240000, ETH: 180000, USDT: 320000 },
-      { name: 'Month 2', BTC: 139800, ETH: 220000, USDT: 280000 },
-      { name: 'Month 3', BTC: 980000, ETH: 160000, USDT: 410000 }
-    ]
+  // Create metrics from real data - Remove Total Payments card
+  const getMetrics = () => {
+    if (!dashboardData) return [];
+
+    const { todayMetrics } = dashboardData;
+    
+    return [
+      {
+        title: 'Pending Transactions',
+        value: todayMetrics.currentMonthSummary?.pending?.toString() || '0',
+        change: '+0',
+        changeType: 'neutral',
+        icon: 'Clock',
+        color: 'text-warning',
+        bgColor: 'bg-warning-50',
+        route: '/dashboard/payments-management?status=pending'
+      },
+      {
+        title: 'Completed Volume',
+        value: `$${todayMetrics.totalSales.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+        change: '+0.0%',
+        changeType: 'neutral',
+        icon: 'CheckCircle',
+        color: 'text-success',
+        bgColor: 'bg-success-50',
+        route: '/dashboard/payments-management?status=completed'
+      },
+      {
+        title: 'Failed Payments',
+        value: todayMetrics.currentMonthSummary?.failed?.toString() || '0',
+        change: '+0',
+        changeType: 'neutral',
+        icon: 'XCircle',
+        color: 'text-error',
+        bgColor: 'bg-error-50',
+        route: '/dashboard/payments-management?status=failed'
+      }
+    ];
   };
 
-  // Mock cryptocurrency distribution data
-  const cryptoDistribution = [
-    { name: 'Bitcoin', value: 45, color: '#F7931A' },
-    { name: 'Ethereum', value: 30, color: '#627EEA' },
-    { name: 'USDT', value: 20, color: '#26A17B' },
-    { name: 'Others', value: 5, color: '#64748B' }
-  ];
-
-  const metricCards = [
-    {
-      title: 'Total Payments',
-      value: `$${metrics.totalPayments.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
-      change: '+12.5%',
-      changeType: 'positive',
-      icon: 'DollarSign',
-      color: 'text-primary',
-      bgColor: 'bg-primary-50',
-      route: '/dashboard/payments-management'
-    },
-    {
-      title: 'Pending Transactions',
-      value: metrics.pendingTransactions.toString(),
-      change: '+3',
-      changeType: 'neutral',
-      icon: 'Clock',
-      color: 'text-warning',
-      bgColor: 'bg-warning-50',
-      route: '/dashboard/payments-management?status=pending'
-    },
-    {
-      title: 'Completed Volume',
-      value: `$${metrics.completedVolume.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
-      change: '+8.2%',
-      changeType: 'positive',
-      icon: 'CheckCircle',
-      color: 'text-success',
-      bgColor: 'bg-success-50',
-      route: '/dashboard/payments-management?status=completed'
-    },
-    {
-      title: 'Failed Payments',
-      value: metrics.failedPayments.toString(),
-      change: '-2',
-      changeType: 'positive',
-      icon: 'XCircle',
-      color: 'text-error',
-      bgColor: 'bg-error-50',
-      route: '/dashboard/payments-management?status=failed'
+  // Enhanced chart data formatter
+  const getChartData = () => {
+    if (!dashboardData || !dashboardData.dailyBreakdown || dashboardData.dailyBreakdown.length === 0) {
+      console.log('⚠️ No daily breakdown data for chart');
+      // Return placeholder data
+      return Array(7).fill(0).map((_, i) => {
+        const date = new Date();
+        date.setDate(date.getDate() - (6-i));
+        return {
+          name: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+          BTC: 0,
+          ETH: 0,
+          USDT: 0,
+          PYUSD: 0,
+          MATIC: 0
+        };
+      });
     }
-  ];
+
+    console.log('📊 Using daily breakdown data for chart:', dashboardData.dailyBreakdown.length, 'days');
+    
+    // Use the daily breakdown data from the API
+    return dashboardData.dailyBreakdown.map(day => ({
+      name: day.name,
+      BTC: parseFloat(day.BTC || 0).toFixed(2),
+      ETH: parseFloat(day.ETH || 0).toFixed(2),
+      USDT: parseFloat(day.USDT || 0).toFixed(2),
+      PYUSD: parseFloat(day.PYUSD || 0).toFixed(2),
+      MATIC: parseFloat(day.MATIC || 0).toFixed(2)
+    }));
+  };
+
+  // Create crypto distribution from real data
+  const getCryptoDistribution = () => {
+    if (!dashboardData || !dashboardData.cryptoDistribution) {
+      // Show placeholder for empty state
+      return [
+        { name: 'USDT', value: 25, color: '#26A17B' },
+        { name: 'Bitcoin', value: 25, color: '#F7931A' },
+        { name: 'Ethereum', value: 25, color: '#627EEA' },
+        { name: 'Others', value: 25, color: '#64748B' }
+      ];
+    }
+
+    // Use real distribution data
+    return dashboardData.cryptoDistribution.filter(item => item.value > 0);
+  };
+
+  // Debounced data fetching to prevent rapid API calls
+  const debouncedFetchData = debounce(async (forceRefresh = false) => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      console.log(`🔄 Fetching dashboard data ${forceRefresh ? '(force refresh)' : ''}`);
+      
+      // Fetch all dashboard data in parallel with caching
+      const [overviewResponse, cryptoDistResponse] = await Promise.all([
+        dashboardAPI.getOverview(forceRefresh), // Pass force refresh parameter
+        dashboardAPI.getCryptoDistribution(selectedPeriod + 'days')
+      ]);
+      
+      if (overviewResponse.success) {
+        console.log('📊 Dashboard data received:', {
+          pendingCount: overviewResponse.todayMetrics?.currentMonthSummary?.pending || 0,
+          completedVolume: overviewResponse.todayMetrics?.totalSales || 0,
+          failedCount: overviewResponse.todayMetrics?.currentMonthSummary?.failed || 0,
+          dailyData: overviewResponse.dailyBreakdown?.length || 0
+        });
+        
+        const combinedData = {
+          ...overviewResponse,
+          cryptoDistribution: cryptoDistResponse.success ? cryptoDistResponse.distribution : []
+        };
+        setDashboardData(combinedData);
+      } else {
+        throw new Error(overviewResponse.message || 'Failed to fetch dashboard data');
+      }
+    } catch (err) {
+      console.error('Error fetching dashboard data:', err);
+      setError('Failed to load dashboard data. ' + err.message);
+      
+      // Set default empty data for graceful degradation
+      setDashboardData({
+        todayMetrics: {
+          totalSales: 0,
+          transactionCount: 0,
+          volume: { USDT: 0, PYUSD: 0, BTC: 0, ETH: 0, MATIC: 0 },
+          currentMonthSummary: { totalPayments: 0, completed: 0, failed: 0, pending: 0 }
+        },
+        monthlyMetrics: {
+          totalSales: 0,
+          transactionCount: 0,
+          volume: { USDT: 0, PYUSD: 0, BTC: 0, ETH: 0, MATIC: 0 }
+        },
+        orderStats: { total: 0, pending: 0, processing: 0, completed: 0, cancelled: 0 },
+        cryptoDistribution: []
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, 300);
+
+  // Fetch dashboard data with force refresh capability
+  useEffect(() => {
+    debouncedFetchData(false); // Initial load, don't force refresh
+  }, [selectedPeriod]); // Only refetch when period changes
+
+  // More aggressive refresh strategy
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        // Force refresh when tab becomes visible
+        debouncedFetchData(true);
+      }
+    };
+
+    // Auto-refresh every 1 minute when active
+    const interval = setInterval(() => {
+      if (!document.hidden) {
+        debouncedFetchData(true); // Force refresh on interval
+      }
+    }, 60 * 1000); // 1 minute refresh
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [selectedPeriod]);
+
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="p-6 space-y-6 overflow-x-hidden max-w-full">
+        <div className="flex items-center justify-center py-12">
+          <div className="flex flex-col items-center space-y-4">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            <p className="text-text-secondary">Loading dashboard...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const metricCards = getMetrics();
+  const chartData = getChartData();
+  const cryptoDistribution = getCryptoDistribution();
 
   const periodOptions = [
     { value: '7', label: '7 Days' },
     { value: '30', label: '30 Days' },
     { value: '90', label: '90 Days' }
   ];
-
-  // Simulate real-time updates
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setMetrics(prev => ({
-        ...prev,
-        pendingTransactions: Math.max(0, prev.pendingTransactions + Math.floor(Math.random() * 3) - 1)
-      }));
-    }, 30000); // Update every 30 seconds
-
-    return () => clearInterval(interval);
-  }, []);
 
   const getChangeColor = (changeType) => {
     switch (changeType) {
@@ -122,20 +227,117 @@ const Dashboard = () => {
     window.location.href = route;
   };
 
+  // Modified: open modal instead of direct link generation
   const handleGeneratePaymentLink = () => {
-    // Mock payment link generation
-    const mockLink = `https://cryptopay.example.com/pay/${Math.random().toString(36).substr(2, 9)}`;
-    navigator.clipboard.writeText(mockLink);
-    alert('Payment link generated and copied to clipboard!');
+    setIsPaymentLinkModalOpen(true);
+    setOrderIdInput('');
+    setOrderIdError('');
   };
 
-  const handleExportReport = () => {
-    // Mock report export
-    alert('Report export initiated. You will receive an email when ready.');
+  // New: handle modal submit
+  const handlePaymentLinkSubmit = async (e) => {
+    e.preventDefault();
+    if (!orderIdInput.trim()) {
+      setOrderIdError('Order ID is required');
+      return;
+    }
+
+    try {
+      // Get user's first active API key
+      const { apiKeysAPI } = await import('utils/api');
+      const response = await apiKeysAPI.getAll();
+      
+      if (response.success && response.apiKeys && response.apiKeys.length > 0) {
+        const activeKey = response.apiKeys.find(key => key.isActive);
+        if (activeKey) {
+          const baseUrl = import.meta.env.VITE_CLIENT_URL || 'http://localhost:9000';
+          const paymentLink = `${baseUrl}/payment/${activeKey.key}/${orderIdInput.trim()}`;
+          navigator.clipboard.writeText(paymentLink);
+          alert(`Payment link generated and copied to clipboard!\n\n${paymentLink}`);
+        } else {
+          alert('No active API keys found. Please create an API key first.');
+        }
+      } else {
+        alert('Unable to generate payment link. Please create an API key first.');
+      }
+    } catch (error) {
+      console.error('Error generating payment link:', error);
+      alert('Failed to generate payment link. Please try again.');
+    }
+    
+    setIsPaymentLinkModalOpen(false);
+  };
+
+  // Add this function to fix the ReferenceError
+  const handleRefreshData = () => {
+    debouncedFetchData(true); // Force refresh dashboard data
   };
 
   return (
     <div className="p-6 space-y-6 overflow-x-hidden max-w-full">
+      {/* Error Banner */}
+      {error && (
+        <div className="bg-error-50 border border-error-200 rounded-lg p-4">
+          <div className="flex items-center space-x-2">
+            <Icon name="AlertCircle" size={16} color="var(--color-error)" />
+            <p className="text-error text-sm">{error}</p>
+            <button 
+              onClick={handleRefreshData} 
+              className="ml-auto text-error underline text-sm"
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Payment Link Modal */}
+      {isPaymentLinkModalOpen && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-surface rounded-lg shadow-lg p-8 w-full max-w-md relative z-[10000]">
+            <button
+              onClick={() => setIsPaymentLinkModalOpen(false)}
+              className="absolute top-3 right-3 p-2 rounded hover:bg-secondary-100"
+            >
+              <Icon name="X" size={20} color="currentColor" />
+            </button>
+            <h2 className="text-xl font-semibold text-text-primary mb-4">Generate Payment Link</h2>
+            <form onSubmit={handlePaymentLinkSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-text-secondary mb-2">
+                  Enter Order ID
+                </label>
+                <input
+                  type="text"
+                  value={orderIdInput}
+                  onChange={e => { setOrderIdInput(e.target.value); setOrderIdError(''); }}
+                  className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                  placeholder="Order ID"
+                  autoFocus
+                />
+                {orderIdError && (
+                  <p className="text-error text-xs mt-1">{orderIdError}</p>
+                )}
+              </div>
+              <div className="flex justify-end space-x-2">
+                <button
+                  type="button"
+                  onClick={() => setIsPaymentLinkModalOpen(false)}
+                  className="px-4 py-2 border border-border rounded-lg text-text-secondary hover:text-text-primary hover:bg-secondary-100 transition-smooth"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary-700 transition-smooth"
+                >
+                  Generate & Copy Link
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
       
       {/* Page Header */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
@@ -146,6 +348,18 @@ const Dashboard = () => {
         
         {/* Quick Actions */}
         <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3">
+          <button
+            onClick={handleRefreshData}
+            className="
+              flex items-center justify-center space-x-2 px-4 py-2
+              border border-border rounded-lg
+              text-text-primary hover:bg-secondary-100
+              transition-smooth font-medium
+            "
+          >
+            <Icon name="RefreshCcw" size={20} color="currentColor" />
+            <span>Refresh Data</span>
+          </button>
           <button
             onClick={handleGeneratePaymentLink}
             className="
@@ -159,7 +373,7 @@ const Dashboard = () => {
             <span>Generate Payment Link</span>
           </button>
           <button
-            onClick={handleExportReport}
+            onClick={() => alert('Report export initiated. You will receive an email when ready.')}
             className="
               flex items-center justify-center space-x-2 px-4 py-2
               border border-border rounded-lg
@@ -173,8 +387,8 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* Metrics Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      {/* Metrics Cards - Now showing 3 cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
         {metricCards.map((card, index) => (
           <div
             key={index}
@@ -231,31 +445,50 @@ const Dashboard = () => {
           </div>
           
           <div className="h-80">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData[selectedPeriod]} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-                <XAxis 
-                  dataKey="name" 
-                  stroke="var(--color-text-secondary)"
-                  fontSize={12}
-                />
-                <YAxis 
-                  stroke="var(--color-text-secondary)"
-                  fontSize={12}
-                />
-                <Tooltip 
-                  contentStyle={{
-                    backgroundColor: 'var(--color-surface)',
-                    border: '1px solid var(--color-border)',
-                    borderRadius: '8px',
-                    boxShadow: '0 4px 6px rgba(0, 0, 0, 0.05)'
-                  }}
-                />
-                <Bar dataKey="BTC" fill="#F7931A" name="Bitcoin" />
-                <Bar dataKey="ETH" fill="#627EEA" name="Ethereum" />
-                <Bar dataKey="USDT" fill="#26A17B" name="USDT" />
-              </BarChart>
-            </ResponsiveContainer>
+            {chartData.length > 0 && chartData.some(day => 
+              parseFloat(day.BTC) > 0 || 
+              parseFloat(day.ETH) > 0 || 
+              parseFloat(day.USDT) > 0 || 
+              parseFloat(day.PYUSD) > 0 || 
+              parseFloat(day.MATIC) > 0
+            ) ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+                  <XAxis 
+                    dataKey="name" 
+                    stroke="var(--color-text-secondary)"
+                    fontSize={12}
+                  />
+                  <YAxis 
+                    stroke="var(--color-text-secondary)"
+                    fontSize={12}
+                  />
+                  <Tooltip 
+                    formatter={(value) => ['$' + parseFloat(value).toFixed(2), 'Volume']}
+                    contentStyle={{
+                      backgroundColor: 'var(--color-surface)',
+                      border: '1px solid var(--color-border)',
+                      borderRadius: '8px',
+                      boxShadow: '0 4px 6px rgba(0, 0, 0, 0.05)'
+                    }}
+                  />
+                  <Bar dataKey="BTC" fill="#F7931A" name="Bitcoin" />
+                  <Bar dataKey="ETH" fill="#627EEA" name="Ethereum" />
+                  <Bar dataKey="USDT" fill="#26A17B" name="USDT" />
+                  <Bar dataKey="PYUSD" fill="#1FC7D4" name="PYUSD" />
+                  <Bar dataKey="MATIC" fill="#8247E5" name="MATIC" />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-full">
+                <div className="text-center">
+                  <Icon name="BarChart" size={48} color="var(--color-text-secondary)" className="mx-auto mb-4" />
+                  <p className="text-text-secondary">No payment data available yet</p>
+                  <p className="text-text-secondary text-sm">Start accepting payments to see trends</p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -312,7 +545,7 @@ const Dashboard = () => {
       </div>
 
       {/* Recent Activity */}
-      <RecentActivity />
+      <RecentActivity onPaymentStatusChange={handleRefreshData} />
     </div>
   );
 };

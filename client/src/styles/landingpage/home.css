@@ -42,6 +42,8 @@
 .lay1para {
     color: rgba(0, 124, 124, 0.551);
     font-size: 1.3em;
+    line-height: 1.5;
+    margin-bottom: 1rem;
     width: 90%;
 }
 

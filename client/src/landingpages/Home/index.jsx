@@ -52,7 +52,20 @@ const Home = () => {
               </li>
             </ul>
             <div className="btncenter">
-              <button className="lay1btn">Get Started</button>
+              <button
+                className="
+                  bg-primary text-white px-6 py-3 rounded-lg font-medium
+                  shadow-card
+                  transition-all duration-300 ease-in-out
+                  hover:bg-primary-700 hover:scale-[1.04] hover:shadow-lg
+                  focus:outline-none focus:ring-2 focus:ring-primary-100
+                  active:scale-[0.98]
+                  transform-origin-center
+                "
+                style={{ transformOrigin: "center" }}
+              >
+                Get Started
+              </button>
             </div>
           </div>
         </div>
@@ -87,7 +100,18 @@ const Home = () => {
               </ul>
               <br />
               <div className="btncenter">
-                <button className="lay2btn">Explore Now </button>
+                <button
+                  className="
+                    bg-primary text-white px-6 py-3 rounded-lg font-medium
+                    shadow-card
+                    transition-all duration-300 ease-in-out
+                    hover:bg-primary-700 hover:scale-[1.04] hover:shadow-lg
+                    focus:outline-none focus:ring-2 focus:ring-primary-100
+                    active:scale-[0.98]
+                  "
+                >
+                  Explore Now
+                </button>
               </div>
               <img
                 src="/images/lay2arrow.gif"
@@ -118,7 +142,19 @@ const Home = () => {
                   <p>Wide range of conversion options</p>
                 </li>
               </ul>
-              <button className="lay3btn">Accept Crypto Now</button>
+              <button
+                className="
+                  bg-primary text-white px-6 py-3 rounded-lg font-medium
+                  shadow-card
+                  transition-all duration-300 ease-in-out
+                  hover:bg-primary-700 hover:scale-[1.04] hover:shadow-lg
+                  focus:outline-none focus:ring-2 focus:ring-primary-100
+                  active:scale-[0.98]
+                  mt-8
+                "
+              >
+                Accept Crypto Now
+              </button>
             </div>
           </div>
           <div className="lay3right">
@@ -137,7 +173,18 @@ const Home = () => {
                   <p>Purchase gift cards</p>
                 </li>
               </ul>
-              <button className="lay3btn" style={{ marginTop: 24 }}>
+              <button
+                className="
+                  bg-primary text-white px-6 py-3 rounded-lg font-medium
+                  shadow-card
+                  transition-all duration-300 ease-in-out
+                  hover:bg-primary-700 hover:scale-[1.04] hover:shadow-lg
+                  focus:outline-none focus:ring-2 focus:ring-primary-100
+                  active:scale-[0.98]
+                  mt-6
+                "
+                style={{ marginTop: 24 }}
+              >
                 Set Up Your Free Wallet Now
               </button>
             </div>

@@ -9,8 +9,11 @@ import PaymentConfiguration from './components/PaymentConfiguration';
 import NotificationSettings from './components/NotificationSettings';
 import ApiManagement from './components/ApiManagement';
 
-const AccountSettings = () => {
+const AccountSettings = ({ userData, refreshUserData }) => {
   const [activeTab, setActiveTab] = useState('profile');
+
+  // Debug log to see what userData is received
+  console.log('🎯 AccountSettings received userData:', userData);
 
   const tabs = [
     {
@@ -46,19 +49,20 @@ const AccountSettings = () => {
   ];
 
   const renderTabContent = () => {
+    
     switch (activeTab) {
       case 'profile':
-        return <ProfileInformation />;
+        return <ProfileInformation userData={userData} refreshUserData={refreshUserData} />;
       case 'security':
-        return <SecuritySettings />;
+        return <SecuritySettings userData={userData} />;
       case 'payment':
-        return <PaymentConfiguration />;
+        return <PaymentConfiguration userData={userData} />;
       case 'notifications':
-        return <NotificationSettings />;
+        return <NotificationSettings userData={userData} />;
       case 'api':
-        return <ApiManagement />;
+        return <ApiManagement userData={userData} />;
       default:
-        return <ProfileInformation />;
+        return <ProfileInformation userData={userData} refreshUserData={refreshUserData} />;
     }
   };
 

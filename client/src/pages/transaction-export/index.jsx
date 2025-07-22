@@ -11,11 +11,10 @@ const TransactionExport = () => {
     customStartDate: '',
     customEndDate: '',
     status: 'all',
-    cryptocurrencies: [],
+    cryptocurrencies: ['all'],
     amountRange: { min: '', max: '' },
-    customers: [],
     format: 'csv',
-    columns: ['date', 'amount', 'status', 'customer', 'cryptocurrency'],
+    columns: ['transactionId', 'amount', 'cryptocurrency', 'status', 'date'],
     includeHeaders: true,
     emailDelivery: false,
     emailAddress: ''
@@ -35,18 +34,8 @@ const TransactionExport = () => {
         if (prev >= 100) {
           clearInterval(progressInterval);
           setIsExporting(false);
-          // Add to export history
-          const newExport = {
-            id: `EXP_${Date.now()}`,
-            name: `Transaction Export - ${new Date().toLocaleDateString()}`,
-            format: exportConfig.format.toUpperCase(),
-            status: 'completed',
-            createdAt: new Date().toISOString(),
-            recordCount: 1247,
-            fileSize: '2.3 MB',
-            downloadUrl: '#'
-          };
-          // In real app, this would update the export history
+          // Trigger download or show completion message
+          alert('Export completed successfully!');
           return 100;
         }
         return prev + Math.random() * 15;

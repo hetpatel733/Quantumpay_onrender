@@ -1,18 +1,31 @@
 import React, { useContext, useState, useEffect } from "react";
-import { BrowserRouter, Routes as RouterRoutes, Route, Navigate } from "react-router-dom";
-import { useLocation } from 'react-router-dom';
+import {
+  BrowserRouter,
+  Routes as RouterRoutes,
+  Route,
+  Navigate,
+} from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import ScrollToTop from "components/ScrollToTop";
 import ErrorBoundary from "components/ErrorBoundary";
-import Sidebar, { SidebarProvider, SidebarContext } from "components/ui/Sidebar";
+import Sidebar, {
+  SidebarProvider,
+  SidebarContext,
+} from "components/ui/Sidebar";
 import Header from "components/ui/Header";
 import { AuthContext } from "contexts/AuthContext";
 import AuthProvider from "contexts/AuthContext";
+import { authAPI } from "utils/api"; // Fixed import path
 
 // Page imports
 import Home from "landingpages/Home";
 import Login from "landingpages/Login";
 import Signup from "landingpages/Signup";
 import Contact from "landingpages/Contact";
+// Add payment page imports
+import CoinSelect from "pages/payment/CoinSelect";
+import FinalPayment from "pages/payment/FinalPayment";
+import PaymentRedirect from "pages/payment/PaymentRedirect";
 import Dashboard from "pages/dashboard";
 import PaymentsManagement from "pages/payments-management";
 import PaymentDetailsModal from "pages/payment-details-modal";
@@ -21,19 +34,32 @@ import TransactionExport from "pages/transaction-export";
 import PortfolioManagement from "pages/portfolio-management";
 import NotFound from "pages/NotFound";
 
+const server = import.meta.env.VITE_SERVER_URL || "";
 // Error display component
 const AuthErrorDisplay = ({ error }) => (
   <div className="min-h-screen flex items-center justify-center bg-background">
     <div className="max-w-md mx-auto text-center p-8 bg-white rounded-lg shadow-lg">
       <div className="mb-4">
-        <svg className="mx-auto h-12 w-12 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 16.5c-.77.833.192 2.5 1.732 2.5z" />
+        <svg
+          className="mx-auto h-12 w-12 text-red-500"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 16.5c-.77.833.192 2.5 1.732 2.5z"
+          />
         </svg>
       </div>
-      <h2 className="text-xl font-semibold text-gray-900 mb-2">Authentication Error</h2>
+      <h2 className="text-xl font-semibold text-gray-900 mb-2">
+        Authentication Error
+      </h2>
       <p className="text-gray-600 mb-4">{error}</p>
-      <button 
-        onClick={() => window.location.href = '/login'}
+      <button
+        onClick={() => (window.location.href = "/login")}
         className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
       >
         Go to Login
@@ -42,58 +68,78 @@ const AuthErrorDisplay = ({ error }) => (
   </div>
 );
 
-// Enhanced Dashboard Data Provider that fetches complete user data from localhost:9000
+// Enhanced Dashboard Data Provider that fetches complete user data
 const DashboardDataProvider = ({ children, userData: authUserData }) => {
   const [completeUserData, setCompleteUserData] = useState(null);
   const [isLoadingUserData, setIsLoadingUserData] = useState(false);
   const [userDataError, setUserDataError] = useState(null);
 
-  // Function to fetch user data from localhost:8000 (not 9000)
-  const fetchCompleteUserData = async (userId) => {
+  // Function to fetch user data using new API
+  const fetchCompleteUserData = async (userId, forceRefresh = false) => {
     try {
       setIsLoadingUserData(true);
-      console.log(`🚀 REQUEST SENT: Fetching complete user data from localhost:8000/api/userdata for ID: ${userId}`);
-      
-      const response = await fetch(`/api/userdata?id=${userId}`, {
-        method: 'GET',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+      console.log(
+        `🚀 REQUEST SENT: Fetching complete user data for ID: ${userId}`
+      );
 
-      console.log(`✅ RESPONSE RECEIVED: localhost:8000/api/userdata - Status: ${response.status}`);
-
-      // Check if response is HTML (error page) instead of JSON
-      const contentType = response.headers.get('content-type');
-      if (!contentType || !contentType.includes('application/json')) {
-        console.error('❌ ERROR: Server returned HTML instead of JSON');
-        throw new Error('Server returned invalid response format');
+      // Check if we have cached data and don't need force refresh
+      const cachedData = localStorage.getItem("completeUserData");
+      if (!forceRefresh && cachedData && completeUserData) {
+        try {
+          const parsed = JSON.parse(cachedData);
+          console.log("Using cached user data:", parsed);
+          setCompleteUserData(parsed);
+          setUserDataError(null);
+          return parsed;
+        } catch (e) {
+          console.log("Cache invalid, fetching fresh data");
+        }
       }
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
+      const data = await authAPI.getUserData(userId);
 
-      const data = await response.json();
-      
       if (data.success) {
-        console.log('Complete user data received from api/userdata/:', data.userData);
+        console.log("Complete user data received:", data.userData);
         setCompleteUserData(data.userData);
         setUserDataError(null);
+
+        // Cache the data
+        localStorage.setItem("completeUserData", JSON.stringify(data.userData));
+
         return data.userData;
       } else {
-        throw new Error(data.message || 'Failed to fetch user data');
+        throw new Error(data.message || "Failed to fetch user data");
       }
     } catch (error) {
-      console.error('❌ ERROR: Fetching complete user data:', error);
+      console.error("❌ ERROR: Fetching complete user data:", error);
       setUserDataError(error.message);
-      // Fallback to auth data if API fails
-      console.log('Using fallback auth data:', authUserData);
+
+      // Try to use cached data as fallback
+      const cachedData = localStorage.getItem("completeUserData");
+      if (cachedData) {
+        try {
+          const parsed = JSON.parse(cachedData);
+          console.log("Using cached data as fallback:", parsed);
+          setCompleteUserData(parsed);
+          return parsed;
+        } catch (e) {
+          console.log("Cache invalid, using auth data fallback");
+        }
+      }
+
+      // Final fallback to auth data
+      console.log("Using auth data as final fallback:", authUserData);
       setCompleteUserData(authUserData);
       return authUserData;
     } finally {
       setIsLoadingUserData(false);
+    }
+  };
+
+  // Function to refresh user data (called after profile updates)
+  const refreshUserData = () => {
+    if (authUserData?.id) {
+      return fetchCompleteUserData(authUserData.id, true); // Force refresh
     }
   };
 
@@ -115,7 +161,7 @@ const DashboardDataProvider = ({ children, userData: authUserData }) => {
           <div className="text-lg">Loading complete user profile...</div>
           {userDataError && (
             <div className="text-sm text-orange-600 max-w-md text-center">
-              {userDataError}
+              Using cached data due to: {userDataError}
             </div>
           )}
         </div>
@@ -123,16 +169,18 @@ const DashboardDataProvider = ({ children, userData: authUserData }) => {
     );
   }
 
-  // Clone children and pass complete user data
-  return React.cloneElement(children, { 
+  // Clone children and pass complete user data with refresh function
+  return React.cloneElement(children, {
     userData: completeUserData,
-    userDataError: userDataError
+    userDataError: userDataError,
+    refreshUserData: refreshUserData,
   });
 };
 
 // Protected Route Component - now with enhanced data
 const ProtectedRoute = ({ children }) => {
-  const { isAuthenticated, isLoading, authError, userData } = useContext(AuthContext);
+  const { isAuthenticated, isLoading, authError, userData } =
+    useContext(AuthContext);
 
   // Show loading while checking authentication
   if (isLoading || isAuthenticated === null) {
@@ -185,52 +233,228 @@ const LoginWrapper = () => {
 };
 
 //data handling from Landing page to Dashboard - simplified and cleaned up
-const DashboardWithData = ({ userData, userDataError }) => {
-  return <Dashboard userData={userData} userDataError={userDataError} />;
+const DashboardWithData = ({ userData, userDataError, refreshUserData }) => {
+  return (
+    <Dashboard
+      userData={userData}
+      userDataError={userDataError}
+      refreshUserData={refreshUserData}
+    />
+  );
 };
 
-// Enhanced components that receive userData
-const EnhancedPaymentsManagement = ({ userData, userDataError }) => (
-  <PaymentsManagement userData={userData} userDataError={userDataError} />
-);
+// Enhanced components that receive userData - Fix loading issues
+const EnhancedAccountSettings = ({
+  userData,
+  userDataError,
+  refreshUserData,
+}) => {
+  console.log("🎯 EnhancedAccountSettings received userData:", userData);
+  
+  // Show loading if userData is still being fetched
+  if (!userData) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
-const EnhancedAccountSettings = ({ userData, userDataError }) => (
-  <AccountSettings userData={userData} userDataError={userDataError} />
-);
+  return (
+    <AccountSettings
+      userData={userData}
+      userDataError={userDataError}
+      refreshUserData={refreshUserData}
+    />
+  );
+};
 
-const EnhancedTransactionExport = ({ userData, userDataError }) => (
-  <TransactionExport userData={userData} userDataError={userDataError} />
-);
+// Apply same pattern to other enhanced components
+const EnhancedPaymentsManagement = ({
+  userData,
+  userDataError,
+  refreshUserData,
+}) => {
+  if (!userData) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
-const EnhancedPortfolioManagement = ({ userData, userDataError }) => (
-  <PortfolioManagement userData={userData} userDataError={userDataError} />
-);
+  return (
+    <PaymentsManagement
+      userData={userData}
+      userDataError={userDataError}
+      refreshUserData={refreshUserData}
+    />
+  );
+};
 
-const EnhancedPaymentDetailsModal = ({ userData, userDataError }) => (
-  <PaymentDetailsModal userData={userData} userDataError={userDataError} />
+const EnhancedTransactionExport = ({
+  userData,
+  userDataError,
+  refreshUserData,
+}) => {
+  if (!userData) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  return (
+    <TransactionExport
+      userData={userData}
+      userDataError={userDataError}
+      refreshUserData={refreshUserData}
+    />
+  );
+};
+
+const EnhancedPortfolioManagement = ({
+  userData,
+  userDataError,
+  refreshUserData,
+}) => {
+  if (!userData) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  return (
+    <PortfolioManagement
+      userData={userData}
+      userDataError={userDataError}
+      refreshUserData={refreshUserData}
+    />
+  );
+};
+
+const EnhancedPaymentDetailsModal = ({
+  userData,
+  userDataError,
+  refreshUserData,
+}) => (
+  <PaymentDetailsModal
+    userData={userData}
+    userDataError={userDataError}
+    refreshUserData={refreshUserData}
+  />
 );
 
 // Dashboard layout with user data context
-const DashboardLayout = ({ children, userData, userDataError }) => (
-  <SidebarProvider>
-    <ErrorBoundary>
-      <ScrollToTop />
-      <div className="min-h-screen bg-background flex flex-col">
-        <Sidebar userData={userData} />
-        <Header userData={userData} />
-        <MainContent>
-          {React.cloneElement(children, { userData, userDataError })}
-        </MainContent>
-      </div>
-    </ErrorBoundary>
-  </SidebarProvider>
-);
+const DashboardLayout = ({
+  children,
+  userData,
+  userDataError,
+  refreshUserData,
+}) => {
+  console.log("🎯 DashboardLayout received userData:", userData);
+  console.log(
+    "🎯 DashboardLayout received refreshUserData:",
+    typeof refreshUserData
+  );
+  return (
+    <SidebarProvider>
+      <ErrorBoundary>
+        <ScrollToTop />
+        <div className="min-h-screen bg-background flex flex-col">
+          <Sidebar userData={userData} />
+          <Header userData={userData} />
+          <MainContent>
+            {React.cloneElement(children, {
+              userData,
+              userDataError,
+              refreshUserData,
+            })}
+          </MainContent>
+        </div>
+      </ErrorBoundary>
+    </SidebarProvider>
+  );
+};
+
+// Create a wrapper component to handle nested dashboard routes with userData
+const DashboardRoutesWrapper = ({ userData, userDataError, refreshUserData }) => {
+  console.log('🎯 DashboardRoutesWrapper received userData:', userData);
+  console.log('🎯 DashboardRoutesWrapper received refreshUserData:', typeof refreshUserData);
+  
+  return (
+    <RouterRoutes>
+      <Route 
+        index 
+        element={
+          <DashboardWithData 
+            userData={userData} 
+            userDataError={userDataError} 
+            refreshUserData={refreshUserData} 
+          />
+        } 
+      />
+      <Route
+        path="payments-management"
+        element={
+          <EnhancedPaymentsManagement 
+            userData={userData} 
+            userDataError={userDataError} 
+            refreshUserData={refreshUserData} 
+          />
+        }
+      />
+      <Route
+        path="payment-details-modal"
+        element={
+          <EnhancedPaymentDetailsModal 
+            userData={userData} 
+            userDataError={userDataError} 
+            refreshUserData={refreshUserData} 
+          />
+        }
+      />
+      <Route
+        path="account-settings"
+        element={
+          <EnhancedAccountSettings 
+            userData={userData} 
+            userDataError={userDataError} 
+            refreshUserData={refreshUserData} 
+          />
+        }
+      />
+      <Route
+        path="transaction-export"
+        element={
+          <EnhancedTransactionExport 
+            userData={userData} 
+            userDataError={userDataError} 
+            refreshUserData={refreshUserData} 
+          />
+        }
+      />
+      <Route
+        path="portfolio-management"
+        element={
+          <EnhancedPortfolioManagement 
+            userData={userData} 
+            userDataError={userDataError} 
+            refreshUserData={refreshUserData} 
+          />
+        }
+      />
+      <Route path="*" element={<NotFound />} />
+    </RouterRoutes>
+  );
+};
 
 // Landing layout for Home (no sidebar/header)
 const LandingLayout = ({ children }) => (
-  <div className="min-h-screen bg-background flex flex-col">
-    {children}
-  </div>
+  <div className="min-h-screen bg-background flex flex-col">{children}</div>
 );
 
 // Dashboard layout (sidebar/header)
@@ -241,7 +465,7 @@ const MainContent = ({ children }) => {
       className={`
         transition-layout
         pt-16 pb-6
-        ${isCollapsed ? 'lg:ml-16' : 'lg:ml-60'}
+        ${isCollapsed ? "lg:ml-16" : "lg:ml-60"}
         px-1 sm:px-2 md:px-4
         min-h-[calc(100vh-4rem)]
         overflow-x-hidden
@@ -249,7 +473,7 @@ const MainContent = ({ children }) => {
       `}
       style={{
         maxWidth: "100vw",
-        transition: "margin-left 0.3s cubic-bezier(0.4,0,0.2,1)"
+        transition: "margin-left 0.3s cubic-bezier(0.4,0,0.2,1)",
       }}
     >
       {children}
@@ -261,31 +485,86 @@ const Routes = () => {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <ScrollToTop />
-        <RouterRoutes>
-          {/* Landing page routes */}
-          <Route path="/" element={<LandingLayout><Home /></LandingLayout>} />
-          <Route path="/login" element={<LandingLayout><LoginWrapper /></LandingLayout>} />
-          <Route path="/signup" element={<LandingLayout><Signup /></LandingLayout>} />
-          <Route path="/contact" element={<LandingLayout><Contact /></LandingLayout>} />
-          
-          {/* Protected Dashboard and all admin pages */}
-          <Route path="/dashboard/*" element={
-            <ProtectedRoute>
-              <DashboardLayout>
-                <RouterRoutes>
-                  <Route index element={<DashboardWithData />} />
-                  <Route path="payments-management" element={<EnhancedPaymentsManagement />} />
-                  <Route path="payment-details-modal" element={<EnhancedPaymentDetailsModal />} />
-                  <Route path="account-settings" element={<EnhancedAccountSettings />} />
-                  <Route path="transaction-export" element={<EnhancedTransactionExport />} />
-                  <Route path="portfolio-management" element={<EnhancedPortfolioManagement />} />
-                  <Route path="*" element={<NotFound />} />
-                </RouterRoutes>
-              </DashboardLayout>
-            </ProtectedRoute>
-          } />
-        </RouterRoutes>
+        <ErrorBoundary>
+          <ScrollToTop />
+          <RouterRoutes>
+            {/* Landing Routes */}
+            <Route
+              path="/"
+              element={
+                <LandingLayout>
+                  <Home />
+                </LandingLayout>
+              }
+            />
+            <Route
+              path="/login"
+              element={
+                <LandingLayout>
+                  <LoginWrapper />
+                </LandingLayout>
+              }
+            />
+            <Route
+              path="/signup"
+              element={
+                <LandingLayout>
+                  <Signup />
+                </LandingLayout>
+              }
+            />
+            <Route
+              path="/contact"
+              element={
+                <LandingLayout>
+                  <Contact />
+                </LandingLayout>
+              }
+            />
+
+            {/* Payment Routes - Public (no authentication required) */}
+            {/* Handle direct payment URLs with API key and order ID */}
+            <Route
+              path="/payment/:api/:order_id"
+              element={
+                <LandingLayout>
+                  <PaymentRedirect />
+                </LandingLayout>
+              }
+            />
+            <Route
+              path="/payment/coinselect"
+              element={
+                <LandingLayout>
+                  <CoinSelect />
+                </LandingLayout>
+              }
+            />
+            <Route
+              path="/payment/final-payment"
+              element={
+                <LandingLayout>
+                  <FinalPayment />
+                </LandingLayout>
+              }
+            />
+
+            {/* Protected Dashboard Routes */}
+            <Route
+              path="/dashboard/*"
+              element={
+                <ProtectedRoute>
+                  <DashboardLayout>
+                    <DashboardRoutesWrapper />
+                  </DashboardLayout>
+                </ProtectedRoute>
+              }
+            />
+
+            {/* 404 Route */}
+            <Route path="*" element={<NotFound />} />
+          </RouterRoutes>
+        </ErrorBoundary>
       </AuthProvider>
     </BrowserRouter>
   );

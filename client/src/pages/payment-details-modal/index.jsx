@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import Icon from "components/AppIcon";
 import Image from "components/AppImage";
+const server = import.meta.env.VITE_SERVER_URL || "";
 
 const PaymentDetailsModal = () => {
   const navigate = useNavigate();
@@ -19,24 +20,142 @@ const PaymentDetailsModal = () => {
   useEffect(() => {
     const fetchPayment = async () => {
       try {
-        const response = await fetch(
-          `/api/paymentinfo?id=${id}`,
-          {
+        console.log('🔄 Fetching payment details for ID:', id);
+        
+        if (!id) {
+          console.error('❌ No payment ID provided');
+          setPaymentData(null);
+          return;
+        }
+
+        // Try different API endpoints to fetch payment data
+        let response;
+        let data;
+
+        // First try the paymentinfo endpoint (for backward compatibility)
+        try {
+          response = await fetch(`${server}/api/paymentinfo?id=${id}`, {
             method: "GET",
             credentials: "include",
             headers: {
               "Content-Type": "application/json",
+              "Authorization": `Bearer ${localStorage.getItem('authToken')}`
             },
+          });
+          
+          if (response.ok) {
+            data = await response.json();
+            console.log('📦 PaymentInfo response:', data);
+            
+            if (data.success && data.payment) {
+              setPaymentData(data.payment);
+              return;
+            }
           }
-        );
-        if (!response.ok) throw new Error("Failed to fetch payment data");
-        const data = await response.json();
-        setPaymentData(data); // Adjust this according to your API response shape
+        } catch (paymentInfoError) {
+          console.warn('⚠️ PaymentInfo endpoint failed, trying payments endpoint');
+        }
+
+        // If paymentinfo fails, try the payments endpoint
+        try {
+          response = await fetch(`${server}/api/payments/${id}`, {
+            method: "GET",
+            credentials: "include",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${localStorage.getItem('authToken')}`
+            },
+          });
+          
+          if (response.ok) {
+            data = await response.json();
+            console.log('📦 Payments API response:', data);
+            
+            if (data.success && data.payment) {
+              // Transform the data to match expected format
+              const transformedPayment = {
+                id: data.payment.payId,
+                payId: data.payment.payId,
+                amount: data.payment.amountUSD,
+                cryptoAmount: data.payment.amountCrypto,
+                currency: 'USD',
+                cryptoCurrency: data.payment.cryptoType,
+                status: data.payment.status,
+                timestamp: data.payment.createdAt,
+                completedAt: data.payment.completedAt,
+                blockchainHash: data.payment.hash || '000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f',
+                confirmations: data.payment.status === 'completed' ? 6 : 0,
+                networkFee: 0.0001,
+                platformFee: data.payment.amountUSD * 0.01,
+                customer: {
+                  name: data.payment.customerName,
+                  email: data.payment.customerEmail,
+                  company: 'Customer',
+                  id: data.payment.payId,
+                  avatar: '/images/default-avatar.png'
+                },
+                recipient: {
+                  walletAddress: data.payment.businessEmail, // Fallback to email if no address
+                  walletType: 'Business Wallet',
+                  exchangeRate: data.payment.exchangeRate || 40000.00
+                },
+                timeline: [
+                  {
+                    status: 'initiated',
+                    timestamp: data.payment.createdAt,
+                    description: 'Payment request created'
+                  },
+                  ...(data.payment.status === 'completed' ? [
+                    {
+                      status: 'completed',
+                      timestamp: data.payment.completedAt || data.payment.updatedAt,
+                      description: 'Payment completed successfully'
+                    }
+                  ] : [])
+                ],
+                communications: [
+                  {
+                    id: 1,
+                    type: 'email',
+                    direction: 'outbound',
+                    subject: `Payment Confirmation - ${data.payment.payId}`,
+                    timestamp: data.payment.createdAt,
+                    status: 'delivered'
+                  }
+                ],
+                notes: [
+                  {
+                    id: 1,
+                    author: 'System',
+                    content: data.payment.status === 'completed' 
+                      ? 'Payment processed successfully' 
+                      : 'Payment is being processed',
+                    timestamp: data.payment.updatedAt || data.payment.createdAt
+                  }
+                ]
+              };
+              
+              setPaymentData(transformedPayment);
+              return;
+            }
+          }
+        } catch (paymentsError) {
+          console.error('❌ Payments endpoint also failed:', paymentsError);
+        }
+
+        // If both fail, show error
+        console.error('❌ Failed to fetch payment data from both endpoints');
+        setPaymentData(null);
+        
       } catch (err) {
+        console.error("❌ Error fetching payment:", err);
         setPaymentData(null);
       }
     };
-    if (id) fetchPayment();
+    
+    if (id) {
+      fetchPayment();
+    }
   }, [id]);
 
   const getStatusColor = (status) => {

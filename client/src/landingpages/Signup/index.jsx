@@ -3,6 +3,7 @@ import Navbar from "../navbar";
 import Footer from "../footer";
 import { useNavigate } from "react-router-dom";
 import "../../styles/landingpage/signup.css";
+const server = import.meta.env.VITE_SERVER_URL || "";
 
 const Signup = () => {
   const navigate = useNavigate();
@@ -14,7 +15,7 @@ const Signup = () => {
     name: "", // <-- change uname to name
     email: "",
     password: "",
-    type: "B"
+    type: "Business", // Fixed default value
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -22,24 +23,24 @@ const Signup = () => {
   const validators = [
     {
       regexp: /.{8,}/,
-      message: "Minimum 8 chars"
+      message: "Minimum 8 chars",
     },
     {
       regexp: /[a-z]/,
-      message: "1 lowercase"
+      message: "1 lowercase",
     },
     {
       regexp: /[A-Z]/,
-      message: "1 uppercase"
+      message: "1 uppercase",
     },
     {
       regexp: /[0-9]/,
-      message: "1 number"
+      message: "1 number",
     },
     {
       regexp: /.*[!@#$%?=*&]/,
-      message: "1 special char !@#$%?=*&"
-    }
+      message: "1 special char !@#$%?=*&",
+    },
   ];
 
   useEffect(() => {
@@ -49,28 +50,31 @@ const Signup = () => {
       return;
     }
 
-    const results = validators.map(validator => ({
+    const results = validators.map((validator) => ({
       message: validator.message,
-      isValid: validator.regexp.test(password)
+      isValid: validator.regexp.test(password),
     }));
 
     // Check password confirmation
-    const passwordsMatch = password.length > 0 && confirmPassword.length > 0 && password === confirmPassword;
+    const passwordsMatch =
+      password.length > 0 &&
+      confirmPassword.length > 0 &&
+      password === confirmPassword;
     results.push({
       message: "Password confirmation must be the same",
-      isValid: passwordsMatch
+      isValid: passwordsMatch,
     });
 
     setValidationResults(results);
-    
+
     // Form is valid if all validators pass
-    const allValid = results.every(result => result.isValid);
+    const allValid = results.every((result) => result.isValid);
     setIsFormValid(allValid);
   }, [password, confirmPassword]);
 
   const handlePasswordChange = (e) => {
     setPassword(e.target.value);
-    setFormData(prev => ({ ...prev, password: e.target.value }));
+    setFormData((prev) => ({ ...prev, password: e.target.value }));
   };
 
   const handleConfirmPasswordChange = (e) => {
@@ -79,17 +83,17 @@ const Signup = () => {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      [name]: value
+      [name]: value,
     }));
     if (error) setError("");
   };
 
   const handleTypeChange = (e) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      type: e.target.value
+      type: e.target.value,
     }));
   };
 
@@ -102,13 +106,13 @@ const Signup = () => {
     setIsSubmitting(true);
     setError("");
     try {
-      const response = await fetch("/api/signup", {
+      const response = await fetch(`${server}/api/auth/signup`, {
         method: "POST",
         headers: {
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
         },
         credentials: "include",
-        body: JSON.stringify(formData)
+        body: JSON.stringify(formData),
       });
       if (response.redirected) {
         // If server redirects, follow it
@@ -132,14 +136,7 @@ const Signup = () => {
   return (
     <>
       <Navbar />
-      
-      <link rel="preconnect" href="https://fonts.googleapis.com" />
-      <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
-      <link
-        href="https://fonts.googleapis.com/css2?family=Raleway&display=swap"
-        rel="stylesheet"
-      />
-     
+
       <div className="maincontainer">
         <form method="POST" onSubmit={handleSubmit}>
           <h1 className="registerhead">Register Now!</h1>
@@ -149,9 +146,9 @@ const Signup = () => {
                 <input
                   type="radio"
                   name="type"
-                  value="B"
+                  value="Business"
                   id="radio-card-1"
-                  checked={formData.type === "B"}
+                  checked={formData.type === "Business"}
                   onChange={handleTypeChange}
                 />
                 <div className="card-content-wrapper">
@@ -171,9 +168,9 @@ const Signup = () => {
                 <input
                   type="radio"
                   name="type"
-                  value="P"
+                  value="Personal"
                   id="radio-card-2"
-                  checked={formData.type === "P"}
+                  checked={formData.type === "Personal"}
                   onChange={handleTypeChange}
                 />
                 <div className="card-content-wrapper">
@@ -248,8 +245,8 @@ const Signup = () => {
             </div>
             <div className="validator-output">
               {validationResults.map((result, index) => (
-                <div 
-                  key={index} 
+                <div
+                  key={index}
                   className={result.isValid ? "valid" : "invalid"}
                 >
                   {result.message}
@@ -264,7 +261,7 @@ const Signup = () => {
           </div>
         </form>
       </div>
-      
+
       <Footer />
     </>
   );

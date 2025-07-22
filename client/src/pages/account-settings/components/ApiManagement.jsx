@@ -1,37 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Icon from 'components/AppIcon';
+import { apiKeysAPI } from 'utils/api';
 
 const ApiManagement = () => {
-  const [apiKeys, setApiKeys] = useState([
-    {
-      id: 1,
-      name: 'Production API Key',
-      key: 'pk_live_1234567890abcdef1234567890abcdef',
-      secret: 'sk_live_abcdef1234567890abcdef1234567890',
-      created: '2024-01-10T10:00:00Z',
-      lastUsed: '2024-01-15T14:30:00Z',
-      permissions: ['read', 'write'],
-      isActive: true
-    },
-    {
-      id: 2,
-      name: 'Development API Key',
-      key: 'pk_test_1234567890abcdef1234567890abcdef',
-      secret: 'sk_test_abcdef1234567890abcdef1234567890',
-      created: '2024-01-05T09:00:00Z',
-      lastUsed: '2024-01-14T16:45:00Z',
-      permissions: ['read'],
-      isActive: true
-    }
-  ]);
-
+  const [apiKeys, setApiKeys] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [usageStats, setUsageStats] = useState({
-    totalRequests: 15420,
-    successfulRequests: 15180,
-    failedRequests: 240,
-    rateLimitHits: 12,
+    totalRequests: 0,
+    successfulRequests: 0,
+    failedRequests: 0,
+    rateLimitHits: 0,
     monthlyLimit: 100000,
-    currentUsage: 15420
+    currentUsage: 0
   });
 
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -40,6 +21,74 @@ const ApiManagement = () => {
     permissions: ['read']
   });
 
+  // Fetch API keys from server
+  useEffect(() => {
+    const fetchApiKeys = async () => {
+      try {
+        setLoading(true);
+        const response = await apiKeysAPI.getAll();
+        
+        if (response.success) {
+          // Ensure apiKeys data has the right structure
+          const normalizedApiKeys = (response.apiKeys || []).map(key => ({
+            id: key._id || key.id,
+            name: key.label || key.name || 'Unnamed API Key',
+            key: key.key || '',
+            secret: key.secret || '',
+            permissions: key.permissions || ['read'],
+            isActive: key.isActive !== undefined ? key.isActive : true,
+            created: key.createdAt || key.created,
+            lastUsed: key.lastUsed,
+            usageCount: key.usageCount || 0
+          }));
+          
+          setApiKeys(normalizedApiKeys);
+          
+          // For new users with no data
+          if (response.isEmpty || normalizedApiKeys.length === 0) {
+            setUsageStats({
+              totalRequests: 0,
+              successfulRequests: 0,
+              failedRequests: 0,
+              rateLimitHits: 0,
+              monthlyLimit: 100000,
+              currentUsage: 0
+            });
+          } else {
+            // Calculate usage stats from API keys
+            const totalUsage = normalizedApiKeys.reduce((sum, key) => sum + (key.usageCount || 0), 0);
+            setUsageStats(prev => ({
+              ...prev,
+              currentUsage: totalUsage,
+              totalRequests: totalUsage,
+              successfulRequests: Math.floor(totalUsage * 0.95),
+              failedRequests: Math.floor(totalUsage * 0.05)
+            }));
+          }
+        } else {
+          // Empty result is OK for new users
+          if (response.isEmpty) {
+            setApiKeys([]);
+          } else {
+            setError(response.message || 'Failed to fetch API keys');
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching API keys:', err);
+        // Don't show error for new users with no data
+        if (err.message && err.message.includes('404')) {
+          setApiKeys([]);
+        } else {
+          setError('Failed to load API keys. Please try again.');
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchApiKeys();
+  }, []);
+
   const permissions = [
     { id: 'read', label: 'Read', description: 'View payment data and transactions' },
     { id: 'write', label: 'Write', description: 'Create and modify payment requests' },
@@ -47,35 +96,92 @@ const ApiManagement = () => {
     { id: 'webhook', label: 'Webhook', description: 'Manage webhook configurations' }
   ];
 
-  const handleCreateApiKey = () => {
-    const newKey = {
-      id: apiKeys.length + 1,
-      name: newApiKey.name,
-      key: `pk_${newApiKey.permissions.includes('write') ? 'live' : 'test'}_${Math.random().toString(36).substr(2, 32)}`,
-      secret: `sk_${newApiKey.permissions.includes('write') ? 'live' : 'test'}_${Math.random().toString(36).substr(2, 32)}`,
-      created: new Date().toISOString(),
-      lastUsed: null,
-      permissions: newApiKey.permissions,
-      isActive: true
-    };
-
-    setApiKeys([...apiKeys, newKey]);
-    setNewApiKey({ name: '', permissions: ['read'] });
-    setShowCreateModal(false);
+  const handleCreateApiKey = async () => {
+    try {
+      const response = await apiKeysAPI.create({
+        label: newApiKey.name,
+        permissions: newApiKey.permissions
+      });
+      
+      if (response.success) {
+        // Normalize the new API key structure
+        const normalizedApiKey = {
+          id: response.apiKey._id || response.apiKey.id,
+          name: response.apiKey.label || response.apiKey.name,
+          key: response.apiKey.key || '',
+          secret: response.apiKey.secret || '',
+          permissions: response.apiKey.permissions || ['read'],
+          isActive: response.apiKey.isActive !== undefined ? response.apiKey.isActive : true,
+          created: response.apiKey.createdAt || response.apiKey.created,
+          lastUsed: response.apiKey.lastUsed,
+          usageCount: response.apiKey.usageCount || 0
+        };
+        
+        setApiKeys(prev => [...prev, normalizedApiKey]);
+        setNewApiKey({ name: '', permissions: ['read'] });
+        setShowCreateModal(false);
+      } else {
+        alert('Failed to create API key: ' + response.message);
+      }
+    } catch (error) {
+      console.error('Error creating API key:', error);
+      alert('Failed to create API key');
+    }
   };
 
-  const handleDeleteApiKey = (keyId) => {
-    setApiKeys(apiKeys.filter(key => key.id !== keyId));
+  // Add missing permission toggle handler
+  const handlePermissionToggle = (permissionId) => {
+    setNewApiKey(prev => ({
+      ...prev,
+      permissions: prev.permissions.includes(permissionId)
+        ? prev.permissions.filter(p => p !== permissionId)
+        : [...prev.permissions, permissionId]
+    }));
   };
 
-  const handleToggleApiKey = (keyId) => {
-    setApiKeys(apiKeys.map(key =>
-      key.id === keyId ? { ...key, isActive: !key.isActive } : key
-    ));
+  const handleDeleteApiKey = async (keyId) => {
+    if (!confirm('Are you sure you want to delete this API key?')) return;
+    
+    try {
+      const response = await apiKeysAPI.delete(keyId);
+      if (response.success) {
+        setApiKeys(prev => prev.filter(key => key.id !== keyId));
+      } else {
+        alert('Failed to delete API key: ' + response.message);
+      }
+    } catch (error) {
+      console.error('Error deleting API key:', error);
+      alert('Failed to delete API key');
+    }
+  };
+
+  const handleToggleApiKey = async (keyId) => {
+    try {
+      const key = apiKeys.find(k => k.id === keyId);
+      const response = await apiKeysAPI.update(keyId, {
+        isActive: !key.isActive
+      });
+      
+      if (response.success) {
+        setApiKeys(prev => prev.map(key =>
+          key.id === keyId ? { ...key, isActive: !key.isActive } : key
+        ));
+        
+        // Show feedback message
+        const newStatus = !key.isActive ? 'enabled' : 'disabled';
+        alert(`API key ${newStatus} successfully`);
+      } else {
+        alert('Failed to toggle API key status: ' + response.message);
+      }
+    } catch (error) {
+      console.error('Error toggling API key:', error);
+      alert('Failed to toggle API key status');
+    }
   };
 
   const copyToClipboard = (text) => {
     navigator.clipboard.writeText(text);
+    alert('Copied to clipboard!');
   };
 
   const formatDate = (dateString) => {
@@ -89,14 +195,35 @@ const ApiManagement = () => {
     });
   };
 
-  const handlePermissionToggle = (permission) => {
-    setNewApiKey(prev => ({
-      ...prev,
-      permissions: prev.permissions.includes(permission)
-        ? prev.permissions.filter(p => p !== permission)
-        : [...prev.permissions, permission]
-    }));
-  };
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-center py-12">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div className="text-center py-12">
+          <Icon name="AlertCircle" size={48} color="var(--color-error)" className="mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-text-primary mb-2">Error Loading API Keys</h3>
+          <p className="text-text-secondary mb-4">{error}</p>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-700 transition-smooth"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -162,109 +289,144 @@ const ApiManagement = () => {
       {/* API Keys */}
       <div className="bg-surface rounded-lg border border-border p-6">
         <h3 className="text-lg font-semibold text-text-primary mb-4">API Keys</h3>
-        <div className="space-y-4">
-          {apiKeys.map((apiKey) => (
-            <div
-              key={apiKey.id}
-              className="border border-border rounded-lg p-4"
-            >
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center space-x-3">
-                  <h4 className="font-medium text-text-primary">{apiKey.name}</h4>
-                  <div className="flex items-center space-x-2">
-                    {apiKey.permissions.map(permission => (
-                      <span
-                        key={permission}
-                        className="px-2 py-1 bg-secondary-100 text-text-secondary text-xs rounded-full"
-                      >
-                        {permission}
-                      </span>
-                    ))}
-                  </div>
-                  <span className={`
-                    px-2 py-1 text-xs font-medium rounded-full
-                    ${apiKey.isActive 
-                      ? 'bg-success-100 text-success-700' :'bg-error-100 text-error-700'
-                    }
-                  `}>
-                    {apiKey.isActive ? 'Active' : 'Inactive'}
-                  </span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <button
-                    onClick={() => handleToggleApiKey(apiKey.id)}
-                    className="
-                      p-2 rounded-lg
-                      hover:bg-secondary-100 transition-smooth
-                      text-text-secondary hover:text-text-primary
-                    "
-                  >
-                    <Icon name={apiKey.isActive ? 'Pause' : 'Play'} size={16} color="currentColor" />
-                  </button>
-                  <button
-                    onClick={() => handleDeleteApiKey(apiKey.id)}
-                    className="
-                      p-2 rounded-lg
-                      hover:bg-error-50 transition-smooth
-                      text-text-secondary hover:text-error
-                    "
-                  >
-                    <Icon name="Trash2" size={16} color="currentColor" />
-                  </button>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <div>
-                  <label className="block text-xs font-medium text-text-secondary mb-1">
-                    Public Key
-                  </label>
-                  <div className="flex items-center space-x-2">
-                    <code className="flex-1 font-mono text-sm text-text-primary bg-background px-3 py-2 rounded border">
-                      {apiKey.key}
-                    </code>
-                    <button
-                      onClick={() => copyToClipboard(apiKey.key)}
-                      className="
-                        p-2 border border-border rounded
-                        hover:bg-secondary-100 transition-smooth
-                        text-text-secondary hover:text-text-primary
-                      "
-                    >
-                      <Icon name="Copy" size={16} color="currentColor" />
-                    </button>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-text-secondary mb-1">
-                    Secret Key
-                  </label>
-                  <div className="flex items-center space-x-2">
-                    <code className="flex-1 font-mono text-sm text-text-primary bg-background px-3 py-2 rounded border">
-                      {apiKey.secret.substring(0, 20)}...
-                    </code>
-                    <button
-                      onClick={() => copyToClipboard(apiKey.secret)}
-                      className="
-                        p-2 border border-border rounded
-                        hover:bg-secondary-100 transition-smooth
-                        text-text-secondary hover:text-text-primary
-                      "
-                    >
-                      <Icon name="Copy" size={16} color="currentColor" />
-                    </button>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between text-xs text-text-secondary">
-                  <span>Created: {formatDate(apiKey.created)}</span>
-                  <span>Last Used: {formatDate(apiKey.lastUsed)}</span>
-                </div>
-              </div>
+        
+        {/* Empty state for new users */}
+        {!loading && apiKeys.length === 0 && !error && (
+          <div className="text-center py-8">
+            <div className="w-16 h-16 mx-auto bg-secondary-100 rounded-full flex items-center justify-center mb-4">
+              <Icon name="Key" size={24} color="var(--color-text-secondary)" />
             </div>
-          ))}
-        </div>
+            <h3 className="text-lg font-medium text-text-primary mb-2">No API Keys Found</h3>
+            <p className="text-text-secondary max-w-md mx-auto mb-6">
+              You haven't created any API keys yet. API keys allow your applications to securely communicate with our payment system.
+            </p>
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="
+                px-4 py-2 bg-primary text-white rounded-lg
+                hover:bg-primary-700 transition-smooth
+                inline-flex items-center space-x-2
+              "
+            >
+              <Icon name="Plus" size={16} color="currentColor" />
+              <span>Create Your First API Key</span>
+            </button>
+          </div>
+        )}
+        
+        {/* API Keys list */}
+        {!loading && apiKeys.length > 0 && (
+          <div className="space-y-4">
+            {apiKeys.map((apiKey) => (
+              <div
+                key={apiKey.id}
+                className="border border-border rounded-lg p-4"
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center space-x-3">
+                    <h4 className="font-medium text-text-primary">{apiKey.name}</h4>
+                    <div className="flex items-center space-x-2">
+                      {apiKey.permissions.map(permission => (
+                        <span
+                          key={permission}
+                          className="px-2 py-1 bg-secondary-100 text-text-secondary text-xs rounded-full"
+                        >
+                          {permission}
+                        </span>
+                      ))}
+                    </div>
+                    <span className={`
+                      px-2 py-1 text-xs font-medium rounded-full
+                      ${apiKey.isActive 
+                        ? 'bg-success-100 text-success-700' :'bg-error-100 text-error-700'
+                      }
+                    `}>
+                      {apiKey.isActive ? 'Active' : 'Inactive'}
+                    </span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => handleToggleApiKey(apiKey.id)}
+                      className="
+                        p-2 rounded-lg transition-smooth
+                        hover:bg-secondary-100 
+                        text-text-secondary hover:text-text-primary
+                      "
+                      title={apiKey.isActive ? 'Disable API Key' : 'Enable API Key'}
+                    >
+                      <Icon name={apiKey.isActive ? 'Pause' : 'Play'} size={16} color="currentColor" />
+                    </button>
+                    <button
+                      onClick={() => handleDeleteApiKey(apiKey.id)}
+                      className="
+                        p-2 rounded-lg transition-smooth
+                        hover:bg-error-50 
+                        text-text-secondary hover:text-error
+                      "
+                      title="Delete API Key"
+                    >
+                      <Icon name="Trash2" size={16} color="currentColor" />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-medium text-text-secondary mb-1">
+                      Public Key
+                    </label>
+                    <div className="flex items-center space-x-2">
+                      <code className="flex-1 font-mono text-sm text-text-primary bg-background px-3 py-2 rounded border">
+                        {apiKey.key}
+                      </code>
+                      <button
+                        onClick={() => copyToClipboard(apiKey.key)}
+                        className="
+                          p-2 border border-border rounded
+                          hover:bg-secondary-100 transition-smooth
+                          text-text-secondary hover:text-text-primary
+                        "
+                      >
+                        <Icon name="Copy" size={16} color="currentColor" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-text-secondary mb-1">
+                      Secret Key
+                    </label>
+                    <div className="flex items-center space-x-2">
+                      <code className="flex-1 font-mono text-sm text-text-primary bg-background px-3 py-2 rounded border">
+                        {apiKey.secret && apiKey.secret.length > 20 
+                          ? `${apiKey.secret.substring(0, 20)}...`
+                          : apiKey.secret || 'No secret available'
+                        }
+                      </code>
+                      <button
+                        onClick={() => copyToClipboard(apiKey.secret || '')}
+                        disabled={!apiKey.secret}
+                        className="
+                          p-2 border border-border rounded
+                          hover:bg-secondary-100 transition-smooth
+                          text-text-secondary hover:text-text-primary
+                          disabled:opacity-50 disabled:cursor-not-allowed
+                        "
+                      >
+                        <Icon name="Copy" size={16} color="currentColor" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs text-text-secondary">
+                    <span>Created: {formatDate(apiKey.created)}</span>
+                    <span>Last Used: {formatDate(apiKey.lastUsed)}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Documentation Links */}

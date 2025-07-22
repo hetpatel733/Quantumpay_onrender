@@ -1,24 +1,52 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Icon from 'components/AppIcon';
 import Image from 'components/AppImage';
+import { usersAPI } from 'utils/api';
+import { useAuth } from 'contexts/AuthContext';
 
-const ProfileInformation = () => {
+const ProfileInformation = ({ userData, refreshUserData }) => {
+  console.log('🎯 userData received In ProfileInformation:', userData);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [profileData, setProfileData] = useState({
-    businessName: 'Acme Corporation',
-    contactName: 'John Anderson',
-    email: 'john.anderson@acme.com',
-    phone: '+1 (555) 123-4567',
-    website: 'https://acme.com',
+    businessName: '',
+    contactName: '',
+    email: '',
+    phone: '',
+    website: '',
     businessType: 'E-commerce',
     country: 'United States',
     timezone: 'America/New_York',
-    businessDescription: `Acme Corporation is a leading e-commerce platform specializing in innovative consumer electronics and smart home solutions. Founded in 2018, we've grown to serve over 50,000 customers worldwide with a focus on quality products and exceptional customer service.
-
-Our mission is to make cutting-edge technology accessible to everyone while maintaining the highest standards of security and reliability in our payment processing systems.`,
+    businessDescription: '',
     profileImage: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=400&h=400&fit=crop&crop=face'
   });
+
+  const { userData: authData } = useAuth();
+
+  // Update profile data when userData changes
+  useEffect(() => {
+    
+    if (userData && typeof userData === 'object') {
+
+      const updatedProfileData = {
+        businessName: userData.businessName || userData.name || '',
+        contactName: userData.name || '',
+        email: userData.email || '',
+        phone: userData.phoneNumber || '',
+        website: userData.website || '',
+        businessType: userData.businessType || 'E-commerce',
+        country: userData.country || 'United States',
+        timezone: userData.timeZone || 'America/New_York',
+        businessDescription: userData.description || '',
+        profileImage: userData.profileImage || 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=400&h=400&fit=crop&crop=face'
+      };
+      
+      console.log('📝 Setting profileData to:', updatedProfileData);
+      setProfileData(updatedProfileData);
+    } else {
+    }
+  }, [userData]);
+
 
   const businessTypes = [
     'E-commerce',
@@ -52,16 +80,108 @@ Our mission is to make cutting-edge technology accessible to everyone while main
   };
 
   const handleSave = async () => {
+    if (!authData?.id) {
+      alert('User ID not found. Please log in again.');
+      return;
+    }
+
+    console.log('🔄 Starting profile update for user:', authData.id);
+    console.log('📝 Update data:', {
+      name: profileData.contactName,
+      businessName: profileData.businessName,
+      website: profileData.website,
+      phoneNumber: profileData.phone,
+      country: profileData.country,
+      businessType: profileData.businessType,
+      timeZone: profileData.timezone,
+      description: profileData.businessDescription
+    });
+
     setIsSaving(true);
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    setIsSaving(false);
-    setIsEditing(false);
+    try {
+      const updateData = {
+        name: profileData.contactName,
+        businessName: profileData.businessName,
+        website: profileData.website,
+        phoneNumber: profileData.phone,
+        country: profileData.country,
+        businessType: profileData.businessType,
+        timeZone: profileData.timezone,
+        description: profileData.businessDescription
+      };
+
+      // Use the usersAPI.updateProfile function
+      console.log('🚀 Calling API to update profile...');
+      const response = await usersAPI.updateProfile(authData.id, updateData);
+      
+      console.log('📤 API Response:', response);
+      
+      if (response.success) {
+        setIsEditing(false);
+        alert('Profile updated successfully!');
+        
+        // Update local storage immediately
+        const currentStoredData = JSON.parse(localStorage.getItem('completeUserData') || '{}');
+        const updatedStoredData = {
+          ...currentStoredData,
+          ...updateData,
+          // Make sure we preserve the ID and other important fields
+          id: currentStoredData.id,
+          email: currentStoredData.email,
+          _id: currentStoredData._id
+        };
+        
+        localStorage.setItem('completeUserData', JSON.stringify(updatedStoredData));
+        console.log('Updated localStorage with:', updatedStoredData);
+        
+        // Refresh the parent component's userData
+        if (refreshUserData) {
+          console.log('Calling refreshUserData...');
+          await refreshUserData();
+        }
+        
+        // Update the component's profileData state to reflect the changes immediately
+        setProfileData(prev => ({
+          ...prev,
+          businessName: updateData.businessName,
+          contactName: updateData.name,
+          phone: updateData.phoneNumber,
+          website: updateData.website,
+          country: updateData.country,
+          businessType: updateData.businessType,
+          timezone: updateData.timeZone,
+          businessDescription: updateData.description
+        }));
+        
+      } else {
+        console.error('❌ Profile update failed:', response.message);
+        alert('Failed to update profile: ' + (response.message || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('❌ Error updating profile:', error);
+      alert('Failed to update profile. Please check your connection and try again.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleCancel = () => {
     setIsEditing(false);
-    // Reset form data if needed
+    // Reset to the original userData when canceling
+    if (userData) {
+      setProfileData({
+        businessName: userData.businessName || userData.name || '',
+        contactName: userData.name || '',
+        email: userData.email || '',
+        phone: userData.phoneNumber || '',
+        website: userData.website || '',
+        businessType: userData.businessType || 'E-commerce',
+        country: userData.country || 'United States',
+        timezone: userData.timeZone || 'America/New_York',
+        businessDescription: userData.description || '',
+        profileImage: userData.profileImage || 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=400&h=400&fit=crop&crop=face'
+      });
+    }
   };
 
   const handleImageUpload = (event) => {
@@ -160,8 +280,12 @@ Our mission is to make cutting-edge technology accessible to everyone while main
             )}
           </div>
           <div>
-            <h4 className="font-medium text-text-primary">{profileData.contactName}</h4>
-            <p className="text-text-secondary text-sm">{profileData.businessName}</p>
+            <h4 className="font-medium text-text-primary">
+              {profileData.contactName || 'No Name Set'}
+            </h4>
+            <p className="text-text-secondary text-sm">
+              {profileData.businessName || 'No Business Name Set'}
+            </p>
             {isEditing && (
               <p className="text-xs text-text-secondary mt-2">
                 Click the camera icon to upload a new photo. Recommended size: 400x400px
@@ -191,7 +315,9 @@ Our mission is to make cutting-edge technology accessible to everyone while main
                 "
               />
             ) : (
-              <p className="text-text-primary py-2">{profileData.businessName}</p>
+              <p className="text-text-primary py-2">
+                {profileData.businessName || 'No business name set'}
+              </p>
             )}
           </div>
 
@@ -211,7 +337,9 @@ Our mission is to make cutting-edge technology accessible to everyone while main
                 "
               />
             ) : (
-              <p className="text-text-primary py-2">{profileData.contactName}</p>
+              <p className="text-text-primary py-2">
+                {profileData.contactName || 'No contact name set'}
+              </p>
             )}
           </div>
 
@@ -231,7 +359,9 @@ Our mission is to make cutting-edge technology accessible to everyone while main
                 "
               />
             ) : (
-              <p className="text-text-primary py-2">{profileData.email}</p>
+              <p className="text-text-primary py-2">
+                {profileData.email || 'No email set'}
+              </p>
             )}
           </div>
 
@@ -251,7 +381,9 @@ Our mission is to make cutting-edge technology accessible to everyone while main
                 "
               />
             ) : (
-              <p className="text-text-primary py-2">{profileData.phone}</p>
+              <p className="text-text-primary py-2">
+                {profileData.phone || 'No phone number set'}
+              </p>
             )}
           </div>
 
@@ -272,10 +404,14 @@ Our mission is to make cutting-edge technology accessible to everyone while main
               />
             ) : (
               <p className="text-text-primary py-2">
-                <a href={profileData.website} target="_blank" rel="noopener noreferrer" 
-                   className="text-primary hover:underline">
-                  {profileData.website}
-                </a>
+                {profileData.website ? (
+                  <a href={profileData.website} target="_blank" rel="noopener noreferrer" 
+                     className="text-primary hover:underline">
+                    {profileData.website}
+                  </a>
+                ) : (
+                  'No website set'
+                )}
               </p>
             )}
           </div>
@@ -369,7 +505,7 @@ Our mission is to make cutting-edge technology accessible to everyone while main
             />
           ) : (
             <div className="text-text-primary py-2 whitespace-pre-line">
-              {profileData.businessDescription}
+              {profileData.businessDescription || 'No business description set'}
             </div>
           )}
         </div>

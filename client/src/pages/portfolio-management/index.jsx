@@ -1,6 +1,7 @@
 // src/pages/portfolio-management/index.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Icon from 'components/AppIcon';
+import { ordersAPI, apiKeysAPI } from 'utils/api';
 
 import ItemFormModal from './components/ItemFormModal';
 import ItemCard from './components/ItemCard';
@@ -8,50 +9,57 @@ import ItemCard from './components/ItemCard';
 const PortfolioManagement = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
-  const [portfolioItems, setPortfolioItems] = useState([
-    {
-      id: 'item_001',
-      name: 'Premium Wireless Headphones',
-      description: 'High-quality wireless headphones with noise cancellation and 30-hour battery life.',
-      price: 199.99,
-      cryptoPrice: { type: 'Bitcoin', symbol: 'BTC', amount: 0.00512 },
-      image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=500&h=350&fit=crop',
-      address: '3FZbgi29cpjq2GjdwV8eyHuJJnkLtktZc5',
-      status: 'active',
-      salesCount: 24,
-      createdAt: new Date('2024-01-10')
-    },
-    {
-      id: 'item_002',
-      name: 'Smart Fitness Watch',
-      description: 'Track your fitness goals with this advanced smartwatch featuring heart rate monitoring and GPS.',
-      price: 149.50,
-      cryptoPrice: { type: 'Ethereum', symbol: 'ETH', amount: 0.0845 },
-      image: 'https://images.pexels.com/photos/437037/pexels-photo-437037.jpeg?w=500&h=350&fit=crop',
-      address: '0x71C7656EC7ab88b098defB751B7401B5f6d8976F',
-      status: 'active',
-      salesCount: 18,
-      createdAt: new Date('2024-01-15')
-    },
-    {
-      id: 'item_003',
-      name: 'Portable Power Bank',
-      description: '20,000mAh high-capacity power bank with fast charging capabilities for all your devices.',
-      price: 49.99,
-      cryptoPrice: { type: 'USDT', symbol: 'USDT', amount: 49.99 },
-      image: 'https://images.pixabay.com/photo/2018/01/24/17/33/light-bulb-3104355_1280.jpg?w=500&h=350&fit=crop',
-      address: '0x71C7656EC7ab88b098defB751B7401B5f6d8976F',
-      status: 'inactive',
-      salesCount: 7,
-      createdAt: new Date('2024-02-01')
-    }
-  ]);
+  const [portfolioItems, setPortfolioItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   const [filters, setFilters] = useState({
     status: 'all',
     search: '',
     sortBy: 'newest'
   });
+
+  // Fetch orders from API
+  useEffect(() => {
+    const fetchOrders = async () => {
+      try {
+        setLoading(true);
+        const response = await ordersAPI.getAll({
+          limit: 100,
+          sortBy: 'createdAt',
+          sortOrder: 'desc'
+        });
+        
+        if (response.success) {
+          // Transform API data to match component expectations
+          const transformedItems = response.orders.map(order => ({
+            id: order._id,
+            name: order.productName,
+            description: order.description || 'No description provided',
+            price: order.amountUSD,
+            cryptoPrice: { type: 'USDT', symbol: 'USDT', amount: order.amountUSD },
+            image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=500&h=350&fit=crop',
+            address: order.businessEmail,
+            status: order.isActive ? 'active' : 'inactive',
+            salesCount: 0, // This would need to be calculated from payments
+            createdAt: new Date(order.createdAt),
+            orderId: order.orderId
+          }));
+          
+          setPortfolioItems(transformedItems);
+        } else {
+          setError(response.message || 'Failed to fetch portfolio items');
+        }
+      } catch (err) {
+        console.error('Error fetching portfolio items:', err);
+        setError('Failed to load portfolio items. Please try again.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchOrders();
+  }, []);
 
   const handleAddItem = () => {
     setSelectedItem(null);
@@ -63,54 +71,137 @@ const PortfolioManagement = () => {
     setIsModalOpen(true);
   };
 
-  const handleDeleteItem = (itemId) => {
-    setPortfolioItems(prevItems => prevItems.filter(item => item.id !== itemId));
-  };
-
-  const handleSaveItem = (itemData) => {
-    if (selectedItem) {
-      // Edit existing item
-      setPortfolioItems(prevItems => 
-        prevItems.map(item => item.id === selectedItem.id ? { ...item, ...itemData } : item)
-      );
-    } else {
-      // Add new item
-      const newItem = {
-        id: `item_${Date.now()}`,
-        ...itemData,
-        salesCount: 0,
-        createdAt: new Date()
-      };
-      setPortfolioItems(prevItems => [...prevItems, newItem]);
+  const handleDeleteItem = async (itemId) => {
+    try {
+      const response = await ordersAPI.delete(itemId);
+      if (response.success) {
+        setPortfolioItems(prevItems => prevItems.filter(item => item.id !== itemId));
+      } else {
+        alert('Failed to delete item');
+      }
+    } catch (error) {
+      console.error('Error deleting item:', error);
+      alert('Failed to delete item');
     }
-    setIsModalOpen(false);
   };
 
-  const handleToggleStatus = (itemId) => {
-    setPortfolioItems(prevItems => 
-      prevItems.map(item => {
-        if (item.id === itemId) {
-          return {
-            ...item,
-            status: item.status === 'active' ? 'inactive' : 'active'
-          };
+  const handleSaveItem = async (itemData) => {
+    try {
+      if (selectedItem) {
+        // Edit existing item
+        const response = await ordersAPI.update(selectedItem.id, {
+          productName: itemData.name,
+          description: itemData.description,
+          amountUSD: itemData.price,
+          isActive: itemData.status === 'active'
+        });
+        
+        if (response.success) {
+          setPortfolioItems(prevItems => 
+            prevItems.map(item => 
+              item.id === selectedItem.id 
+                ? { ...item, ...itemData, price: itemData.price } 
+                : item
+            )
+          );
         }
-        return item;
-      })
+      } else {
+        // Add new item - create order in backend
+        const response = await ordersAPI.create({
+          productName: itemData.name,
+          description: itemData.description,
+          amountUSD: itemData.price,
+          customerEmail: '', // Empty for portfolio items
+          metadata: { 
+            isPortfolioItem: true,
+            ...itemData.metadata 
+          }
+        });
+        
+        if (response.success) {
+          // Transform the API response to match UI expectations
+          const newItem = {
+            id: response.order._id,
+            name: response.order.productName,
+            description: response.order.description,
+            price: response.order.amountUSD,
+            cryptoPrice: { type: 'USDT', symbol: 'USDT', amount: response.order.amountUSD },
+            image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=500&h=350&fit=crop',
+            address: response.order.businessEmail,
+            status: 'active',
+            salesCount: 0,
+            createdAt: new Date(response.order.createdAt),
+            orderId: response.order.orderId // Important: Store the orderId for payment links
+          };
+          setPortfolioItems(prevItems => [newItem, ...prevItems]);
+          
+          console.log('✅ Portfolio item created with order ID:', response.order.orderId);
+        } else {
+          throw new Error(response.message || 'Failed to create item');
+        }
+      }
+      setIsModalOpen(false);
+    } catch (error) {
+      console.error('Error saving item:', error);
+      alert(`Failed to save item: ${error.message}`);
+    }
+  };
+
+  const handleToggleStatus = async (itemId) => {
+    try {
+      const item = portfolioItems.find(item => item.id === itemId);
+      const newStatus = item.status === 'active' ? 'inactive' : 'active';
+      
+      const response = await ordersAPI.update(itemId, {
+        isActive: newStatus === 'active'
+      });
+      
+      if (response.success) {
+        setPortfolioItems(prevItems => 
+          prevItems.map(item => {
+            if (item.id === itemId) {
+              return { ...item, status: newStatus };
+            }
+            return item;
+          })
+        );
+      }
+    } catch (error) {
+      console.error('Error toggling status:', error);
+      alert('Failed to update item status');
+    }
+  };
+
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="p-4 lg:p-6 bg-background min-h-screen flex items-center justify-center">
+        <div className="flex flex-col items-center space-y-4">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          <p className="text-text-secondary">Loading portfolio items...</p>
+        </div>
+      </div>
     );
-  };
+  }
 
-  const handleSearchChange = (e) => {
-    setFilters(prev => ({ ...prev, search: e.target.value }));
-  };
-
-  const handleStatusFilterChange = (e) => {
-    setFilters(prev => ({ ...prev, status: e.target.value }));
-  };
-
-  const handleSortChange = (e) => {
-    setFilters(prev => ({ ...prev, sortBy: e.target.value }));
-  };
+  // Show error state
+  if (error) {
+    return (
+      <div className="p-4 lg:p-6 bg-background min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <Icon name="AlertCircle" size={48} color="var(--color-error)" className="mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-text-primary mb-2">Error Loading Portfolio</h2>
+          <p className="text-text-secondary mb-4">{error}</p>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-700 transition-smooth"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   // Filter and sort items
   const filteredItems = portfolioItems.filter(item => {
@@ -139,6 +230,19 @@ const PortfolioManagement = () => {
         return 0;
     }
   });
+
+  // Add missing filter handler functions
+  const handleSearchChange = (e) => {
+    setFilters(prev => ({ ...prev, search: e.target.value }));
+  };
+
+  const handleStatusFilterChange = (e) => {
+    setFilters(prev => ({ ...prev, status: e.target.value }));
+  };
+
+  const handleSortChange = (e) => {
+    setFilters(prev => ({ ...prev, sortBy: e.target.value }));
+  };
 
   return (
     <div className="p-4 lg:p-6 bg-background min-h-screen overflow-x-hidden max-w-full">

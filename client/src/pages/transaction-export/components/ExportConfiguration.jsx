@@ -2,13 +2,13 @@ import React from 'react';
 import Icon from 'components/AppIcon';
 
 const ExportConfiguration = ({ config, onConfigChange }) => {
+  // Add missing data arrays
   const dateRangeOptions = [
-    { value: 'last7days', label: 'Last 7 days' },
-    { value: 'last30days', label: 'Last 30 days' },
-    { value: 'last3months', label: 'Last 3 months' },
-    { value: 'last6months', label: 'Last 6 months' },
-    { value: 'lastyear', label: 'Last year' },
-    { value: 'custom', label: 'Custom range' }
+    { value: 'last7days', label: 'Last 7 Days' },
+    { value: 'last30days', label: 'Last 30 Days' },
+    { value: 'last90days', label: 'Last 90 Days' },
+    { value: 'lastYear', label: 'Last Year' },
+    { value: 'custom', label: 'Custom Range' }
   ];
 
   const statusOptions = [
@@ -19,30 +19,29 @@ const ExportConfiguration = ({ config, onConfigChange }) => {
   ];
 
   const cryptocurrencyOptions = [
-    { value: 'bitcoin', label: 'Bitcoin (BTC)' },
-    { value: 'ethereum', label: 'Ethereum (ETH)' },
-    { value: 'usdt', label: 'Tether (USDT)' },
-    { value: 'usdc', label: 'USD Coin (USDC)' },
-    { value: 'litecoin', label: 'Litecoin (LTC)' }
+    { value: 'Bitcoin', label: 'Bitcoin (BTC)' },
+    { value: 'Ethereum', label: 'Ethereum (ETH)' },
+    { value: 'USDT', label: 'Tether (USDT)' },
+    { value: 'USDC', label: 'USD Coin (USDC)' }
   ];
 
   const formatOptions = [
     { value: 'csv', label: 'CSV', icon: 'FileText' },
     { value: 'excel', label: 'Excel', icon: 'FileSpreadsheet' },
-    { value: 'pdf', label: 'PDF', icon: 'FileText' }
+    { value: 'pdf', label: 'PDF', icon: 'FileType' }
   ];
 
   const columnOptions = [
-    { value: 'date', label: 'Transaction Date' },
-    { value: 'id', label: 'Transaction ID' },
+    { value: 'transactionId', label: 'Transaction ID' },
     { value: 'amount', label: 'Amount' },
     { value: 'cryptocurrency', label: 'Cryptocurrency' },
     { value: 'status', label: 'Status' },
+    { value: 'date', label: 'Date' },
     { value: 'customer', label: 'Customer' },
-    { value: 'fees', label: 'Fees' },
-    { value: 'confirmations', label: 'Confirmations' }
+    { value: 'fees', label: 'Fees' }
   ];
 
+  // Add missing handler functions
   const handleConfigChange = (key, value) => {
     onConfigChange(prev => ({
       ...prev,
@@ -51,19 +50,21 @@ const ExportConfiguration = ({ config, onConfigChange }) => {
   };
 
   const handleCryptocurrencyToggle = (crypto) => {
-    const current = config.cryptocurrencies || [];
-    const updated = current.includes(crypto)
-      ? current.filter(c => c !== crypto)
-      : [...current, crypto];
-    handleConfigChange('cryptocurrencies', updated);
+    const currentCryptos = config.cryptocurrencies || [];
+    const newCryptos = currentCryptos.includes(crypto)
+      ? currentCryptos.filter(c => c !== crypto)
+      : [...currentCryptos, crypto];
+    
+    handleConfigChange('cryptocurrencies', newCryptos);
   };
 
   const handleColumnToggle = (column) => {
-    const current = config.columns || [];
-    const updated = current.includes(column)
-      ? current.filter(c => c !== column)
-      : [...current, column];
-    handleConfigChange('columns', updated);
+    const currentColumns = config.columns || [];
+    const newColumns = currentColumns.includes(column)
+      ? currentColumns.filter(c => c !== column)
+      : [...currentColumns, column];
+    
+    handleConfigChange('columns', newColumns);
   };
 
   return (
@@ -258,7 +259,8 @@ const ExportConfiguration = ({ config, onConfigChange }) => {
                 className={`
                   flex flex-col items-center space-y-2 p-4 rounded-lg border-2 transition-smooth
                   ${config.format === format.value
-                    ? 'border-primary bg-primary-50 text-primary' :'border-border hover:border-secondary-300 text-text-secondary hover:text-text-primary'
+                    ? 'border-primary bg-primary-50 text-primary' 
+                    : 'border-border hover:border-secondary-300 text-text-secondary hover:text-text-primary'
                   }
                 `}
               >
