@@ -4,7 +4,7 @@ import { AuthContext } from "../../contexts/AuthContext";
 import Navbar from "../navbar";
 import Footer from "../footer";
 
-const server = import.meta.env.VITE_SERVER_URL || "http://localhost:8000";
+const server = import.meta.env.VITE_SERVER_URL || "";
 
 const Login = () => {
   const navigate = useNavigate();
