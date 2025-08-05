@@ -18,9 +18,9 @@ require("./db/conn");
 // Delete any duplicate lowercase model files first
 try {
     require("./models/User");
-    require("./models/Payment");
+    require("./models/model_Payment");
     require("./models/Order");
-    require("./models/BusinessAPI");
+    require("./models/model_BusinessAPI");
     require("./models/PaymentConfiguration");
     require("./models/NotificationSettings");
     require("./models/Portfolio");
@@ -36,7 +36,7 @@ try {
 // Add a debug endpoint to check payments
 app.get("/api/debug/payments", async (req, res) => {
     try {
-        const { Payment } = require('./models/Payment');
+        const { Payment } = require('./models/model_Payment');
         const mongoose = require('mongoose');
         
         const totalPayments = await Payment.countDocuments({});

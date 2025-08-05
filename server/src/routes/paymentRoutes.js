@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { Payment } = require('../models/Payment');
+const { Payment } = require('../models/model_Payment');
 const { PaymentConfiguration } = require('../models/PaymentConfiguration');
 const { Order } = require('../models/Order');
 const { authenticateUser } = require('../services/auth');

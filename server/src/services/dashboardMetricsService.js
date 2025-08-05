@@ -1,5 +1,5 @@
 const { DashboardDailyMetric } = require('../models/DashboardDailyMetric');
-const { Payment } = require('../models/Payment');
+const { Payment } = require('../models/model_Payment');
 
 /**
  * Update dashboard metrics when a payment status changes

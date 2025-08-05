@@ -1,4 +1,4 @@
-const { contactsave } = require("../models/contact");
+const { contactsave } = require("../models/model_contact");
 
 const contact = async (req, res, app) => {
     try {

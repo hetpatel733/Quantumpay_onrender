@@ -1,6 +1,6 @@
-const { Payment } = require("../models/Payment");
+const { Payment } = require("../models/model_Payment");
 const { Order } = require("../models/Order");
-const { BusinessAPI } = require("../models/BusinessAPI");
+const { BusinessAPI } = require("../models/model_BusinessAPI");
 const { PaymentConfiguration } = require("../models/PaymentConfiguration");
 const { createPaymentNotification } = require('./notificationService');
 const { updatePaymentMetrics } = require('./dashboardMetricsService');
