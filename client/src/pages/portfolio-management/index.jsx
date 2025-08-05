@@ -87,65 +87,133 @@ const PortfolioManagement = () => {
 
   const handleSaveItem = async (itemData) => {
     try {
+      console.log('💾 Saving item with data:', itemData);
+      setLoading(true);
+      
       if (selectedItem) {
         // Edit existing item
-        const response = await ordersAPI.update(selectedItem.id, {
-          productName: itemData.name,
+        console.log('✏️ Editing existing item:', selectedItem._id || selectedItem.id);
+        const itemId = selectedItem._id || selectedItem.id;
+        
+        const response = await ordersAPI.update(itemId, {
+          productName: itemData.productName,
           description: itemData.description,
-          amountUSD: itemData.price,
-          isActive: itemData.status === 'active'
+          amountUSD: itemData.amountUSD,
+          isActive: itemData.isActive
         });
         
+        console.log('📝 Update response:', response);
+        
         if (response.success) {
-          setPortfolioItems(prevItems => 
-            prevItems.map(item => 
-              item.id === selectedItem.id 
-                ? { ...item, ...itemData, price: itemData.price } 
-                : item
-            )
-          );
+          // Refresh the portfolio items
+          await fetchPortfolioItems();
+          console.log('✅ Item updated successfully');
+          
+          // Show success message
+          alert('Product updated successfully!');
+        } else {
+          throw new Error(response.message || 'Failed to update item');
         }
       } else {
         // Add new item - create order in backend
-        const response = await ordersAPI.create({
-          productName: itemData.name,
+        console.log('➕ Creating new item');
+        const orderData = {
+          productName: itemData.productName,
           description: itemData.description,
-          amountUSD: itemData.price,
-          customerEmail: '', // Empty for portfolio items
-          metadata: { 
-            isPortfolioItem: true,
-            ...itemData.metadata 
-          }
-        });
+          amountUSD: itemData.amountUSD,
+          isActive: itemData.isActive
+        };
+        
+        console.log('📦 Order data to create:', orderData);
+        
+        const response = await ordersAPI.create(orderData);
+        
+        console.log('📋 Create response:', response);
         
         if (response.success) {
-          // Transform the API response to match UI expectations
-          const newItem = {
-            id: response.order._id,
-            name: response.order.productName,
-            description: response.order.description,
-            price: response.order.amountUSD,
-            cryptoPrice: { type: 'USDT', symbol: 'USDT', amount: response.order.amountUSD },
-            image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=500&h=350&fit=crop',
-            address: response.order.businessEmail,
-            status: 'active',
-            salesCount: 0,
-            createdAt: new Date(response.order.createdAt),
-            orderId: response.order.orderId // Important: Store the orderId for payment links
-          };
-          setPortfolioItems(prevItems => [newItem, ...prevItems]);
+          // Refresh the portfolio items to get the latest data
+          await fetchPortfolioItems();
+          console.log('✅ Portfolio item created with order ID:', response.order?.orderId);
           
-          console.log('✅ Portfolio item created with order ID:', response.order.orderId);
+          // Show success message
+          alert('Product created successfully!');
         } else {
           throw new Error(response.message || 'Failed to create item');
         }
       }
+      
       setIsModalOpen(false);
+      setSelectedItem(null);
     } catch (error) {
-      console.error('Error saving item:', error);
-      alert(`Failed to save item: ${error.message}`);
+      console.error('❌ Error saving item:', error);
+      
+      // Enhanced error handling with specific messages
+      let errorMessage = 'Failed to save item';
+      
+      if (error.message.includes('404')) {
+        errorMessage = 'Order not found or access denied. Please refresh and try again.';
+      } else if (error.message.includes('validation')) {
+        errorMessage = 'Invalid data provided. Please check your inputs.';
+      } else if (error.message.includes('deactivated')) {
+        errorMessage = 'This product is deactivated and cannot be modified.';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      alert(`Error: ${errorMessage}`);
+    } finally {
+      setLoading(false);
     }
   };
+
+  const fetchPortfolioItems = async () => {
+    try {
+      setLoading(true);
+      console.log('🔄 Fetching portfolio items...');
+      
+      const response = await ordersAPI.getAll({ limit: 100 });
+      console.log('📦 Orders response:', response);
+
+      if (response.success) {
+        const orders = response.orders || [];
+        // Transform orders to portfolio items format
+        const transformedItems = orders.map(order => ({
+          id: order._id,
+          name: order.productName,
+          description: order.description || '',
+          price: order.amountUSD,
+          cryptoPrice: { 
+            type: 'USDT', 
+            symbol: 'USDT', 
+            amount: order.amountUSD 
+          },
+          image: order.image || 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=500&h=350&fit=crop',
+          address: order.businessEmail,
+          status: order.isActive ? 'active' : 'inactive',
+          salesCount: 0,
+          createdAt: new Date(order.createdAt),
+          orderId: order.orderId,
+          _id: order._id // Keep original ID for updates
+        }));
+        
+        setPortfolioItems(transformedItems);
+        console.log(`✅ Loaded ${transformedItems.length} portfolio items`);
+      } else {
+        console.warn('⚠️ Failed to fetch orders:', response.message);
+        setPortfolioItems([]);
+      }
+    } catch (error) {
+      console.error('❌ Error fetching portfolio items:', error);
+      setPortfolioItems([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fetch items on component mount
+  useEffect(() => {
+    fetchPortfolioItems();
+  }, []);
 
   const handleToggleStatus = async (itemId) => {
     try {

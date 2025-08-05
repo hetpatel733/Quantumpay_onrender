@@ -34,6 +34,9 @@ import TransactionExport from "pages/transaction-export";
 import PortfolioManagement from "pages/portfolio-management";
 import NotFound from "pages/NotFound";
 
+// Create a mapping for the routes that don't exist yet
+const OrderManagement = PortfolioManagement; // Use PortfolioManagement as OrderManagement for now
+
 const server = import.meta.env.VITE_SERVER_URL || "";
 // Error display component
 const AuthErrorDisplay = ({ error }) => (
@@ -439,6 +442,16 @@ const DashboardRoutesWrapper = ({ userData, userDataError, refreshUserData }) =>
       />
       <Route
         path="portfolio-management"
+        element={
+          <EnhancedPortfolioManagement 
+            userData={userData} 
+            userDataError={userDataError} 
+            refreshUserData={refreshUserData} 
+          />
+        }
+      />
+      <Route
+        path="order-management"
         element={
           <EnhancedPortfolioManagement 
             userData={userData} 

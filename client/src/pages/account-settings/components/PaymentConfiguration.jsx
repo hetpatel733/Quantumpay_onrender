@@ -45,23 +45,26 @@ const PaymentConfiguration = () => {
       if (response.success) {
         const config = response.configuration;
         
-        // Handle both old array format and new embedded document format
-        let cryptoConfigs = [];
-        
         if (config && config.cryptoConfigurations) {
-          // New format with embedded documents
-          cryptoConfigs = config.cryptoConfigurations.map(crypto => ({
-            id: `${config._id}_${crypto.coinType}`,
+          // Transform new structure with network support
+          const cryptoConfigs = config.cryptoConfigurations.map(crypto => ({
+            id: `${crypto.coinType}_${crypto.network}`,
             coinType: crypto.coinType,
-            name: getCryptoName(crypto.coinType),
+            name: `${getCryptoName(crypto.coinType)} (${crypto.network})`,
             symbol: crypto.coinType,
             enabled: crypto.enabled,
             address: crypto.address || '',
             label: crypto.label,
-            network: crypto.network
+            network: crypto.network,
+            networkConfig: crypto.networkConfig,
+            decimals: crypto.networkConfig?.decimals || 18,
+            contractAddress: crypto.networkConfig?.contractAddress || '',
+            explorerUrl: crypto.networkConfig?.explorerUrl || ''
           }));
           
-          // Set global settings from configuration
+          setSupportedCryptos(cryptoConfigs);
+          
+          // Set global settings
           setConversionSettings(config.conversionSettings || {
             autoConvert: false,
             baseCurrency: 'USD',
@@ -74,79 +77,143 @@ const PaymentConfiguration = () => {
             dailyLimit: 100000,
             monthlyLimit: 1000000
           });
-        } else if (Array.isArray(response.configurations)) {
-          // Old format with separate documents
-          cryptoConfigs = response.configurations.map(config => ({
-            id: config._id,
-            coinType: config.coinType,
-            name: getCryptoName(config.coinType),
-            symbol: config.coinType,
-            enabled: config.enabled,
-            address: config.address || '',
-            label: config.label,
-            network: config.network
-          }));
         } else {
-          // No configuration found, create default UI structure
-          cryptoConfigs = [
+          // Create default structure for new users - now include MATIC and SOL
+          const defaultCryptos = [
+            // USDT on multiple networks
             {
-              id: 'default_USDT',
+              id: 'USDT_Polygon',
               coinType: 'USDT',
-              name: 'Tether',
+              name: 'Tether (Polygon)',
               symbol: 'USDT',
               enabled: false,
               address: '',
-              label: 'USDT Configuration',
-              network: 'Polygon'
+              label: 'USDT on Polygon',
+              network: 'Polygon',
+              decimals: 6,
+              contractAddress: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F'
             },
             {
-              id: 'default_BTC',
+              id: 'USDT_Ethereum',
+              coinType: 'USDT',
+              name: 'Tether (Ethereum)',
+              symbol: 'USDT',
+              enabled: false,
+              address: '',
+              label: 'USDT on Ethereum',
+              network: 'Ethereum',
+              decimals: 6,
+              contractAddress: '0xdAC17F958D2ee523a2206206994597C13D831ec7'
+            },
+            {
+              id: 'USDT_BSC',
+              coinType: 'USDT',
+              name: 'Tether (BSC)',
+              symbol: 'USDT',
+              enabled: false,
+              address: '',
+              label: 'USDT on BSC',
+              network: 'BSC',
+              decimals: 18,
+              contractAddress: '0x55d398326f99059fF775485246999027B3197955'
+            },
+            // USDC on multiple networks
+            {
+              id: 'USDC_Polygon',
+              coinType: 'USDC',
+              name: 'USD Coin (Polygon)',
+              symbol: 'USDC',
+              enabled: false,
+              address: '',
+              label: 'USDC on Polygon',
+              network: 'Polygon',
+              decimals: 6,
+              contractAddress: '0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174'
+            },
+            {
+              id: 'USDC_Ethereum',
+              coinType: 'USDC',
+              name: 'USD Coin (Ethereum)',
+              symbol: 'USDC',
+              enabled: false,
+              address: '',
+              label: 'USDC on Ethereum',
+              network: 'Ethereum',
+              decimals: 6,
+              contractAddress: '0xA0b86a33E6c8d8e7aB1C3F0F8D0c5E6f8d4eC7b3'
+            },
+            {
+              id: 'USDC_BSC',
+              coinType: 'USDC',
+              name: 'USD Coin (BSC)',
+              symbol: 'USDC',
+              enabled: false,
+              address: '',
+              label: 'USDC on BSC',
+              network: 'BSC',
+              decimals: 18,
+              contractAddress: '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d'
+            },
+            // Bitcoin
+            {
+              id: 'BTC_Bitcoin',
               coinType: 'BTC',
               name: 'Bitcoin',
               symbol: 'BTC',
               enabled: false,
               address: '',
-              label: 'Bitcoin Configuration',
-              network: 'Bitcoin'
+              label: 'Bitcoin',
+              network: 'Bitcoin',
+              decimals: 8,
+              contractAddress: ''
             },
+            // Ethereum
             {
-              id: 'default_ETH',
+              id: 'ETH_Ethereum',
               coinType: 'ETH',
               name: 'Ethereum',
               symbol: 'ETH',
               enabled: false,
               address: '',
-              label: 'Ethereum Configuration',
-              network: 'Ethereum'
+              label: 'Ethereum',
+              network: 'Ethereum',
+              decimals: 18,
+              contractAddress: ''
             },
+            // Polygon MATIC
             {
-              id: 'default_MATIC',
+              id: 'MATIC_Polygon',
               coinType: 'MATIC',
-              name: 'Polygon',
+              name: 'Polygon (MATIC)',
               symbol: 'MATIC',
               enabled: false,
               address: '',
-              label: 'Polygon Native Token',
-              network: 'Polygon'
+              label: 'MATIC (Polygon)',
+              network: 'Polygon',
+              decimals: 18,
+              contractAddress: ''
             },
+            // Solana SOL
             {
-              id: 'default_PYUSD',
-              coinType: 'PYUSD',
-              name: 'PayPal USD',
-              symbol: 'PYUSD',
+              id: 'SOL_Solana',
+              coinType: 'SOL',
+              name: 'Solana (SOL)',
+              symbol: 'SOL',
               enabled: false,
               address: '',
-              label: 'PayPal USD Configuration',
-              network: 'Polygon'
+              label: 'Solana (SOL)',
+              network: 'Solana',
+              decimals: 9,
+              contractAddress: ''
             }
           ];
+          
+          setSupportedCryptos(defaultCryptos);
         }
         
-        setSupportedCryptos(cryptoConfigs);
-        console.log('✅ Configurations loaded:', cryptoConfigs.length);
+        console.log('✅ Configurations loaded');
         
       } else if (response.message && response.message.includes('business accounts')) {
-        // Handle non-business users
         setSupportedCryptos([]);
         setError('Payment configurations are only available for business accounts');
       } else {
@@ -163,11 +230,11 @@ const PaymentConfiguration = () => {
   const getCryptoName = (coinType) => {
     const names = {
       'BTC': 'Bitcoin',
-      'ETH': 'Ethereum',
+      'ETH': 'Ethereum', 
       'USDT': 'Tether',
       'USDC': 'USD Coin',
       'MATIC': 'Polygon',
-      'PYUSD': 'PayPal USD'
+      'SOL': 'Solana'
     };
     return names[coinType] || coinType;
   };
@@ -178,10 +245,9 @@ const PaymentConfiguration = () => {
       const crypto = supportedCryptos.find(c => c.id === cryptoId);
       if (!crypto) return;
 
-      // Check if user is trying to enable without address - show warning but allow
       if (!crypto.enabled && (!crypto.address || crypto.address.trim() === '')) {
         const confirmed = window.confirm(
-          `You're enabling ${crypto.symbol} without a wallet address. You'll need to add a wallet address and save changes to receive payments. Continue?`
+          `You're enabling ${crypto.symbol} on ${crypto.network} without a wallet address. You'll need to add a wallet address and save changes to receive payments. Continue?`
         );
         if (!confirmed) {
           setSaving(false);
@@ -189,23 +255,38 @@ const PaymentConfiguration = () => {
         }
       }
 
-      // Extract coinType from cryptoId (handle both default_ prefix and direct coinType)
-      const coinType = cryptoId.includes('_') ? cryptoId.split('_')[1] : crypto.coinType;
+      // Extract coinType and network from ID
+      const [coinType, network] = cryptoId.split('_');
 
-      const response = await paymentConfigAPI.toggleCrypto(coinType, !crypto.enabled);
+      const response = await fetch(`${import.meta.env.VITE_SERVER_URL}/api/payment-config/crypto/${coinType}/${network}/toggle`, {
+        method: 'PUT',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+        },
+        body: JSON.stringify({ enabled: !crypto.enabled })
+      });
 
-      if (response.success) {
-        setSupportedCryptos(prev =>
-          prev.map(c =>
-            c.id === cryptoId
-              ? { ...c, enabled: !c.enabled }
-              : c
-          )
-        );
-        setSuccessMessage(`${crypto.symbol} ${!crypto.enabled ? 'enabled' : 'disabled'} successfully`);
-        setTimeout(() => setSuccessMessage(''), 3000);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          setSupportedCryptos(prev =>
+            prev.map(c =>
+              c.id === cryptoId
+                ? { ...c, enabled: !c.enabled }
+                : c
+            )
+          );
+          setSuccessMessage(`${crypto.symbol} on ${crypto.network} ${!crypto.enabled ? 'enabled' : 'disabled'} successfully`);
+          setTimeout(() => setSuccessMessage(''), 3000);
+        } else {
+          setError(data.message || 'Failed to update cryptocurrency status');
+          setTimeout(() => setError(null), 5000);
+        }
       } else {
-        setError(response.message || 'Failed to update cryptocurrency status');
+        const errorData = await response.json().catch(() => ({}));
+        setError(errorData.message || 'Failed to update cryptocurrency status');
         setTimeout(() => setError(null), 5000);
       }
     } catch (err) {
@@ -216,6 +297,20 @@ const PaymentConfiguration = () => {
       setSaving(false);
     }
   };
+
+  // Group cryptocurrencies by network for better display
+  const getCryptosByNetwork = () => {
+    const networks = {};
+    supportedCryptos.forEach(crypto => {
+      if (!networks[crypto.network]) {
+        networks[crypto.network] = [];
+      }
+      networks[crypto.network].push(crypto);
+    });
+    return networks;
+  };
+
+  const cryptosByNetwork = getCryptosByNetwork();
 
   const updateWalletAddress = (cryptoId, address) => {
     // Update locally only - don't save to server immediately
@@ -263,10 +358,22 @@ const PaymentConfiguration = () => {
       const addressUpdatePromises = supportedCryptos
         .filter(crypto => crypto.hasUnsavedChanges || crypto.address)
         .map(async (crypto) => {
-          const coinType = crypto.id.includes('_') ? crypto.id.split('_')[1] : crypto.coinType;
-          return paymentConfigAPI.updateConfig(coinType, {
+          // Properly extract coinType and network from the crypto object
+          const coinType = crypto.coinType;
+          const network = crypto.network;
+          
+          console.log('🔄 Updating address for:', coinType, 'on', network);
+          
+          const result = await paymentConfigAPI.updateConfig(coinType, network, {
             address: crypto.address
           });
+          
+          // Return both the result and the crypto info for state updates
+          return {
+            ...result,
+            cryptoId: crypto.id,
+            address: crypto.address
+          };
         });
 
       // Wait for all address updates
@@ -274,6 +381,7 @@ const PaymentConfiguration = () => {
       const failedAddressUpdates = addressResults.filter(result => !result.success);
       
       if (failedAddressUpdates.length > 0) {
+        console.error('Failed address updates:', failedAddressUpdates);
         throw new Error('Failed to update some wallet addresses');
       }
 
@@ -291,19 +399,32 @@ const PaymentConfiguration = () => {
         throw new Error(limitsResponse.message || 'Failed to update transaction limits');
       }
 
-      // Clear unsaved changes flags
+      // Update local state immediately with saved data instead of refetching
       setSupportedCryptos(prev =>
-        prev.map(crypto => ({
-          ...crypto,
-          hasUnsavedChanges: false
-        }))
+        prev.map(crypto => {
+          // Find if this crypto was updated
+          const updatedResult = addressResults.find(result => result.cryptoId === crypto.id);
+          if (updatedResult && updatedResult.success) {
+            return {
+              ...crypto,
+              address: updatedResult.address,
+              hasUnsavedChanges: false
+            };
+          }
+          return {
+            ...crypto,
+            hasUnsavedChanges: false
+          };
+        })
       );
 
       setSuccessMessage('All settings saved successfully');
       setTimeout(() => setSuccessMessage(''), 3000);
       
-      // Refresh configurations to get updated data
-      await fetchPaymentConfigurations();
+      // Invalidate cache to ensure fresh data on next fetch
+      if (window.apiCache) {
+        window.apiCache.delete('payment-config');
+      }
       
     } catch (err) {
       console.error('Error saving settings:', err);
@@ -352,7 +473,7 @@ const PaymentConfiguration = () => {
       <div>
         <h2 className="text-2xl font-bold text-text-primary">Payment Configuration</h2>
         <p className="text-text-secondary mt-1">
-          Manage supported cryptocurrencies, wallet addresses, and transaction settings
+          Manage supported cryptocurrencies across multiple networks, wallet addresses, and transaction settings
         </p>
       </div>
 
@@ -371,73 +492,77 @@ const PaymentConfiguration = () => {
           <div className="flex items-center space-x-2">
             <Icon name="AlertCircle" size={16} color="#ef4444" />
             <p className="text-sm text-error-700">{error}</p>
-            {error && typeof error === 'string' && error.includes('business accounts') && (
-              <div className="mt-2">
-                <p className="text-xs text-error-600">
-                  Only business accounts can configure cryptocurrency payment methods.
-                </p>
-              </div>
-            )}
           </div>
         </div>
       )}
 
-      {/* Loading State */}
-      {loading && (
-        <div className="bg-surface rounded-lg border border-border p-6">
-          <div className="flex items-center justify-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-            <span className="ml-3 text-text-secondary">Loading payment configurations...</span>
-          </div>
-        </div>
-      )}
-
-      {/* Supported Cryptocurrencies - Always show if not loading and not error for non-business */}
+      {/* Supported Cryptocurrencies by Network */}
       {!loading && !(error && typeof error === 'string' && error.includes('business accounts')) && (
-        <div className="bg-surface rounded-lg border border-border p-6">
-          <h3 className="text-lg font-semibold text-text-primary mb-4">Supported Cryptocurrencies</h3>
-          <div className="space-y-4">
-            {supportedCryptos.map((crypto) => (
-              <div
-                key={crypto.id}
-                className="flex items-center justify-between p-4 border border-border rounded-lg"
-              >
-                <div className="flex items-center space-x-4">
-                  <div className="w-10 h-10 bg-secondary-100 rounded-full flex items-center justify-center">
-                    <span className="text-sm font-bold text-text-primary">{crypto.symbol}</span>
-                  </div>
-                  <div>
-                    <h4 className="font-medium text-text-primary">{crypto.name}</h4>
-                    <p className="text-sm text-text-secondary">{crypto.symbol} • {crypto.network}</p>
-                  </div>
-                </div>
+        <div className="space-y-6">
+          {Object.entries(cryptosByNetwork).map(([networkName, cryptos]) => (
+            <div key={networkName} className="bg-surface rounded-lg border border-border p-6">
+              <h3 className="text-lg font-semibold text-text-primary mb-4">
+                {networkName} Network
+                <span className="text-sm text-text-secondary ml-2">
+                  ({cryptos.filter(c => c.enabled).length} enabled)
+                </span>
+              </h3>
+              <div className="space-y-4">
+                {cryptos.map((crypto) => (
+                  <div
+                    key={crypto.id}
+                    className="flex items-center justify-between p-4 border border-border rounded-lg"
+                  >
+                    <div className="flex items-center space-x-4">
+                      <div className="w-10 h-10 bg-secondary-100 rounded-full flex items-center justify-center">
+                        <span className="text-sm font-bold text-text-primary">{crypto.symbol}</span>
+                      </div>
+                      <div>
+                        <h4 className="font-medium text-text-primary">{crypto.name}</h4>
+                        <div className="text-sm text-text-secondary space-x-2">
+                          <span>{crypto.symbol}</span>
+                          <span>•</span>
+                          <span>{crypto.decimals} decimals</span>
+                          {crypto.contractAddress && (
+                            <>
+                              <span>•</span>
+                              <span className="font-mono text-xs">
+                                {crypto.contractAddress.substring(0, 10)}...
+                              </span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
 
-                <div className="flex items-center space-x-4">
-                  <div className="flex items-center space-x-3">
-                    <span className={`text-sm font-medium ${crypto.enabled ? 'text-success' : 'text-text-secondary'}`}>
-                      {crypto.enabled ? 'Enabled' : 'Disabled'}
-                    </span>
-                    <button
-                      onClick={() => toggleCrypto(crypto.id)}
-                      disabled={saving}
-                      className={`
-                        relative inline-flex h-6 w-11 items-center rounded-full transition-smooth
-                        ${crypto.enabled ? 'bg-success' : 'bg-secondary-300'}
-                        disabled:opacity-50
-                      `}
-                    >
-                      <span
-                        className={`
-                          inline-block h-4 w-4 transform rounded-full bg-white transition-smooth
-                          ${crypto.enabled ? 'translate-x-6' : 'translate-x-1'}
-                        `}
-                      />
-                    </button>
+                    <div className="flex items-center space-x-4">
+                      <div className="flex items-center space-x-3">
+                        <span className={`text-sm font-medium ${crypto.enabled ? 'text-success' : 'text-text-secondary'}`}>
+                          {crypto.enabled ? 'Enabled' : 'Disabled'}
+                        </span>
+                        <button
+                          onClick={() => toggleCrypto(crypto.id)}
+                          disabled={saving}
+                          className={`
+                            relative inline-flex h-6 w-11 items-center rounded-full transition-smooth
+                            ${crypto.enabled ? 'bg-success' : 'bg-secondary-300'}
+                            disabled:opacity-50
+                          `}
+                        >
+                          <span
+                            className={`
+                              inline-block h-4 w-4 transform rounded-full bg-white transition-smooth
+                              ${crypto.enabled ? 'translate-x-6' : 'translate-x-1'}
+                            `}
+                          />
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                </div>
+                ))}
               </div>
-            ))}
-          </div>
+            </div>
+          ))}
         </div>
       )}
 

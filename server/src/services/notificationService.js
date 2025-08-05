@@ -56,16 +56,16 @@ const createPaymentNotification = async (businessEmail, paymentData, type) => {
 const createOrderNotification = async (businessEmail, orderData) => {
     return await createNotification({
         businessEmail,
-        message: `New order created: ${orderData.productName} - $${orderData.amountUSD}`,
+        message: `New product created: ${orderData.productName} - $${orderData.amountUSD}`,
         orderId: orderData.orderId,
-        type: 'order_created',
+        type: 'product_created', // Updated from 'order_created' to reflect product concept
         isRead: false,
         priority: 'medium',
         metadata: {
             orderId: orderData.orderId,
             productName: orderData.productName,
             amount: orderData.amountUSD,
-            source: 'order_system'
+            source: 'product_system' // Updated from 'order_system'
         }
     });
 };

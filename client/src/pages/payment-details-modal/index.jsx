@@ -14,6 +14,7 @@ const PaymentDetailsModal = () => {
   const [refundReason, setRefundReason] = useState("");
   const [customerMessage, setCustomerMessage] = useState("");
   const [paymentData, setPaymentData] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   const id = new URLSearchParams(location.search).get("id");
 
@@ -25,6 +26,7 @@ const PaymentDetailsModal = () => {
         if (!id) {
           console.error('❌ No payment ID provided');
           setPaymentData(null);
+          setLoading(false);
           return;
         }
 
@@ -49,6 +51,7 @@ const PaymentDetailsModal = () => {
             
             if (data.success && data.payment) {
               setPaymentData(data.payment);
+              setLoading(false);
               return;
             }
           }
@@ -72,7 +75,7 @@ const PaymentDetailsModal = () => {
             console.log('📦 Payments API response:', data);
             
             if (data.success && data.payment) {
-              // Transform the data to match expected format
+              // Transform the data to match expected format with network support
               const transformedPayment = {
                 id: data.payment.payId,
                 payId: data.payment.payId,
@@ -80,13 +83,18 @@ const PaymentDetailsModal = () => {
                 cryptoAmount: data.payment.amountCrypto,
                 currency: 'USD',
                 cryptoCurrency: data.payment.cryptoType,
+                network: data.payment.network || 'Unknown',
                 status: data.payment.status,
                 timestamp: data.payment.createdAt,
                 completedAt: data.payment.completedAt,
-                blockchainHash: data.payment.hash || '000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f',
+                blockchainHash: data.payment.hash || '0000000000xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
                 confirmations: data.payment.status === 'completed' ? 6 : 0,
                 networkFee: 0.0001,
                 platformFee: data.payment.amountUSD * 0.01,
+                // Add order and API status information
+                orderStatus: data.payment.orderStatus,
+                orderIsActive: data.payment.orderIsActive,
+                apiIsActive: data.payment.apiIsActive,
                 customer: {
                   name: data.payment.customerName,
                   email: data.payment.customerEmail,
@@ -95,21 +103,38 @@ const PaymentDetailsModal = () => {
                   avatar: '/images/default-avatar.png'
                 },
                 recipient: {
-                  walletAddress: data.payment.businessEmail, // Fallback to email if no address
-                  walletType: 'Business Wallet',
+                  walletAddress: data.payment.walletAddress || data.payment.businessEmail,
+                  walletType: `${data.payment.cryptoType} Wallet (${data.payment.network || 'Unknown'})`,
+                  network: data.payment.network || 'Unknown',
                   exchangeRate: data.payment.exchangeRate || 40000.00
                 },
+                // Enhanced timeline with network info
                 timeline: [
                   {
                     status: 'initiated',
                     timestamp: data.payment.createdAt,
-                    description: 'Payment request created'
+                    description: `Payment request created for ${data.payment.cryptoType} on ${data.payment.network || 'Unknown'} network`
                   },
                   ...(data.payment.status === 'completed' ? [
                     {
                       status: 'completed',
                       timestamp: data.payment.completedAt || data.payment.updatedAt,
-                      description: 'Payment completed successfully'
+                      description: `Payment completed on ${data.payment.network || 'Unknown'} network`
+                    }
+                  ] : []),
+                  // Add status entries for deactivated orders or paused APIs
+                  ...(data.payment.orderIsActive === false ? [
+                    {
+                      status: 'warning',
+                      timestamp: data.payment.updatedAt || data.payment.createdAt,
+                      description: 'Associated order has been deactivated'
+                    }
+                  ] : []),
+                  ...(data.payment.apiIsActive === false ? [
+                    {
+                      status: 'warning',
+                      timestamp: data.payment.updatedAt || data.payment.createdAt,
+                      description: 'API access has been paused'
                     }
                   ] : [])
                 ],
@@ -118,7 +143,7 @@ const PaymentDetailsModal = () => {
                     id: 1,
                     type: 'email',
                     direction: 'outbound',
-                    subject: `Payment Confirmation - ${data.payment.payId}`,
+                    subject: `Payment Confirmation - ${data.payment.payId} (${data.payment.network})`,
                     timestamp: data.payment.createdAt,
                     status: 'delivered'
                   }
@@ -128,14 +153,41 @@ const PaymentDetailsModal = () => {
                     id: 1,
                     author: 'System',
                     content: data.payment.status === 'completed' 
-                      ? 'Payment processed successfully' 
-                      : 'Payment is being processed',
+                      ? `Payment processed successfully on ${data.payment.network || 'Unknown'} network` 
+                      : `Payment is being processed on ${data.payment.network || 'Unknown'} network`,
                     timestamp: data.payment.updatedAt || data.payment.createdAt
-                  }
+                  },
+                  // Add network-specific notes
+                  ...(data.payment.network ? [
+                    {
+                      id: 2,
+                      author: 'System',
+                      content: `Network: ${data.payment.network} | Crypto: ${data.payment.cryptoType}`,
+                      timestamp: data.payment.createdAt
+                    }
+                  ] : []),
+                  // Add warning notes for deactivated/paused states
+                  ...(data.payment.orderIsActive === false ? [
+                    {
+                      id: 3,
+                      author: 'System',
+                      content: 'Warning: Associated order has been deactivated',
+                      timestamp: data.payment.updatedAt || data.payment.createdAt
+                    }
+                  ] : []),
+                  ...(data.payment.apiIsActive === false ? [
+                    {
+                      id: 4,
+                      author: 'System',
+                      content: 'Warning: API access has been paused',
+                      timestamp: data.payment.updatedAt || data.payment.createdAt
+                    }
+                  ] : [])
                 ]
               };
               
               setPaymentData(transformedPayment);
+              setLoading(false);
               return;
             }
           }
@@ -150,13 +202,17 @@ const PaymentDetailsModal = () => {
       } catch (err) {
         console.error("❌ Error fetching payment:", err);
         setPaymentData(null);
+      } finally {
+        setLoading(false);
       }
     };
     
     if (id) {
       fetchPayment();
+    } else {
+      setLoading(false);
     }
-  }, [id]);
+  }, [id]); // Only refetch when ID changes, not continuously
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -231,10 +287,33 @@ const PaymentDetailsModal = () => {
     },
   ];
 
+  if (loading) {
+    return (
+      <div className="fixed inset-0 z-300 bg-background flex items-center justify-center">
+        <div className="flex flex-col items-center space-y-4">
+          <Icon name="Loader" size={24} className="animate-spin text-primary" />
+          <p className="text-text-secondary">Loading payment details...</p>
+        </div>
+      </div>
+    );
+  }
+
   if (!paymentData) {
     return (
       <div className="fixed inset-0 z-300 bg-background flex items-center justify-center">
-        <Icon name="Loader" size={24} className="animate-spin text-primary" />
+        <div className="text-center p-8">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Icon name="AlertCircle" size={32} color="#ef4444" />
+          </div>
+          <h1 className="text-2xl font-bold text-red-600 mb-4">Payment Not Found</h1>
+          <p className="text-gray-600 mb-6">The requested payment could not be found or you don't have permission to view it.</p>
+          <button
+            onClick={handleClose}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Close
+          </button>
+        </div>
       </div>
     );
   }
@@ -682,7 +761,7 @@ const PaymentDetailsModal = () => {
   );
 };
 
-// Transaction Details Tab Component
+// Enhanced Transaction Details Tab with Network Information
 const TransactionDetailsTab = ({
   paymentData,
   copyToClipboard,
@@ -690,7 +769,7 @@ const TransactionDetailsTab = ({
 }) => {
   return (
     <div className="space-y-6">
-      {/* Payment Method Details */}
+      {/* Enhanced Payment Method Details with Network */}
       <div>
         <h4 className="text-lg font-medium text-text-primary mb-4">
           Payment Method Details
@@ -702,7 +781,15 @@ const TransactionDetailsTab = ({
                 Cryptocurrency
               </label>
               <p className="text-text-primary">
-                {paymentData.cryptoCurrency} - Bitcoin
+                {paymentData.cryptoCurrency} ({paymentData.network})
+              </p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-text-secondary mb-1">
+                Network
+              </label>
+              <p className="text-text-primary">
+                {paymentData.network || 'Unknown'}
               </p>
             </div>
             <div>
@@ -737,6 +824,11 @@ const TransactionDetailsTab = ({
                 />
               </button>
             </div>
+            {paymentData.network && (
+              <p className="text-xs text-text-secondary mt-1">
+                Ensure you send on the {paymentData.network} network to avoid loss of funds
+              </p>
+            )}
           </div>
         </div>
       </div>

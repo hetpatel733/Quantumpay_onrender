@@ -14,21 +14,30 @@ const port = process.env.PORT || 8000;
 // Connect to the database
 require("./db/conn");
 
-// Import all models (this ensures Mongoose compiles them)
-require("./models/User");
-require("./models/payment");
-require("./models/Order");
-require("./models/BusinessAPI");
-require("./models/PaymentConfiguration");
-require("./models/NotificationSettings");
-require("./models/Portfolio");
-require("./models/Notification");
-require("./models/DashboardDailyMetric");
+// Import all models ONCE in specific order to prevent conflicts
+// Delete any duplicate lowercase model files first
+try {
+    require("./models/User");
+    require("./models/Payment");
+    require("./models/Order");
+    require("./models/BusinessAPI");
+    require("./models/PaymentConfiguration");
+    require("./models/NotificationSettings");
+    require("./models/Portfolio");
+    require("./models/Notification");
+    require("./models/DashboardDailyMetric");
+    console.log('✅ All models loaded successfully');
+} catch (error) {
+    console.error('❌ Error loading models:', error.message);
+    console.error('💡 Make sure to delete duplicate model files (order.js, businessAPI.js, payment.js)');
+    process.exit(1);
+}
 
 // Add a debug endpoint to check payments
 app.get("/api/debug/payments", async (req, res) => {
     try {
-        const { Payment } = require('./models/payment');
+        const { Payment } = require('./models/Payment');
+        const mongoose = require('mongoose');
         
         const totalPayments = await Payment.countDocuments({});
         const samplePayments = await Payment.find({}).limit(5).select('payId businessEmail status createdAt');
@@ -45,16 +54,15 @@ app.get("/api/debug/payments", async (req, res) => {
 
 // Import route modules
 const authRoutes = require('./routes/authRoutes');
-const generalRoutes = require('./routes/generalRoutes');
 const userRoutes = require('./routes/userRoutes');
-const paymentConfigRoutes = require('./routes/paymentConfigRoutes');
-const notificationSettingsRoutes = require('./routes/notificationSettingsRoutes');
-const apiKeyRoutes = require('./routes/apiKeyRoutes');
-const notificationRoutes = require('./routes/notificationRoutes');
 const orderRoutes = require('./routes/orderRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
-const paymentProcessingRoutes = require('./routes/paymentProcessingRoutes');
+const paymentConfigRoutes = require('./routes/paymentConfigRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
+const apiKeyRoutes = require('./routes/apiKeyRoutes');
+const validatePaymentRoutes = require('./routes/validatePaymentRoutes');
+const notificationSettingsRoutes = require('./routes/notificationSettingsRoutes'); // <-- Add this line
 
 // ----------------------------------
 //      MIDDLEWARE CONFIGURATION
@@ -105,20 +113,38 @@ app.get("/api", (req, res) => {
 // API Route Groups
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
-app.use('/api/payment-config', paymentConfigRoutes);
-app.use('/api/notification-settings', notificationSettingsRoutes);
-app.use('/api/api-keys', apiKeyRoutes);
-app.use('/api/notifications', notificationRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/payments', paymentRoutes);
-app.use('/api/payment', paymentProcessingRoutes);
+app.use('/api/payment-config', paymentConfigRoutes);
 app.use('/api/dashboard', dashboardRoutes);
-app.use('/api', generalRoutes); // General routes like /api/userdata should be here
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/api-keys', apiKeyRoutes);
+app.use('/api/notification-settings', notificationSettingsRoutes); // <-- Add this line
 
-// Legacy payment endpoint (for backward compatibility)
+// Payment processing routes for customers (NO AUTHENTICATION REQUIRED) - Must come BEFORE the catch-all
+app.use('/api/payment', validatePaymentRoutes);
+
+// Legacy payment endpoint (for backward compatibility) (NO AUTHENTICATION REQUIRED)
 app.post("/api/payment/coinselect", (req, res) => {
     const { CoinselectFunction } = require('./services/payment');
     CoinselectFunction(req, res);
+});
+
+// Add specific payment endpoints to ensure they work
+app.get('/api/payment/payment-details', async (req, res) => {
+    const { getPaymentDetails } = require('./services/payment');
+    getPaymentDetails(req, res);
+});
+
+app.get('/api/payment/check-status', async (req, res) => {
+    const { checkstatus } = require('./services/payment');
+    checkstatus(req, res);
+});
+
+// Add missing paymentinfo endpoint for backward compatibility
+app.get('/api/paymentinfo', async (req, res) => {
+    const { paymentinfo } = require('./services/paymentinfo');
+    paymentinfo(req, res);
 });
 
 // ----------------------------------

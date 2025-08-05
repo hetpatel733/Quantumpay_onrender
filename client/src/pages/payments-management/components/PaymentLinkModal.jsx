@@ -11,7 +11,7 @@ const PaymentLinkModal = ({ isOpen, onClose, onSuccess }) => {
   const [error, setError] = useState('');
   const [generatedLink, setGeneratedLink] = useState('');
 
-  const baseUrl = import.meta.env.VITE_CLIENT_URL || 'http://localhost:9000';
+  const baseUrl = import.meta.env.VITE_CLIENT_URL || window.location.origin;
 
   useEffect(() => {
     if (isOpen) {
@@ -84,7 +84,19 @@ const PaymentLinkModal = ({ isOpen, onClose, onSuccess }) => {
       return;
     }
 
-    // Generate the payment link using frontend URL format
+    // Check if order is active
+    if (!selectedOrder.isActive) {
+      setError('Selected product/order is deactivated and cannot be used for payments. Please select an active product.');
+      return;
+    }
+
+    // Check if API key is active
+    if (!selectedApi.isActive) {
+      setError('Selected API key is currently paused. Please select an active API key or reactivate the paused one.');
+      return;
+    }
+
+    // Always use baseUrl from env for payment link
     const paymentLink = `${baseUrl}/payment/${selectedApi.key}/${selectedOrder.orderId}`;
     setGeneratedLink(paymentLink);
     setError('');

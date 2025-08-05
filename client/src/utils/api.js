@@ -100,6 +100,18 @@ const apiRequest = async (endpoint, options = {}) => {
   } catch (error) {
     console.error('❌ API request failed:', error);
     
+    // Improved error handling for payment config
+    if (endpoint.includes('/payment-config') && options.emptyResultsOk) {
+      console.log('🔧 Payment config endpoint failed, returning default structure');
+      return { 
+        success: true, 
+        isEmpty: true, 
+        isNewUser: true,
+        configuration: null,
+        message: 'Using default configuration interface'
+      };
+    }
+    
     if (options.emptyResultsOk) {
       return { 
         success: true, 
@@ -158,9 +170,9 @@ export const authAPI = {
   }
 };
 
-// Enhanced Payments API with optimized caching
+// Enhanced Payments API with network support
 export const paymentsAPI = {
-  // Get all payments
+  // Get all payments with network filtering
   getAll: async (params = {}) => {
     const cleanParams = {};
     Object.keys(params).forEach(key => {
@@ -241,11 +253,21 @@ export const paymentsAPI = {
         credentials: 'include'
       });
 
+      const data = await response.json();
+
+      // Handle specific error codes for deactivated/paused states
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        if (data.errorCode === 'API_PAUSED') {
+          throw new Error(`PAYMENT_PAUSED: ${data.message}`);
+        } else if (data.errorCode === 'ORDER_DEACTIVATED') {
+          throw new Error(`ORDER_DEACTIVATED: ${data.message}`);
+        } else if (data.errorCode === 'ORDER_CANCELLED') {
+          throw new Error(`ORDER_CANCELLED: ${data.message}`);
+        }
+        throw new Error(data.message || `HTTP ${response.status}: ${response.statusText}`);
       }
 
-      return await response.json();
+      return data;
     } catch (error) {
       console.error('Payment validation API error:', error);
       throw error;
@@ -260,7 +282,7 @@ export const paymentsAPI = {
     });
   },
 
-  // Process payment through coin selection
+  // Process payment through coin selection with network support
   processCoinSelection: async (paymentData) => {
     try {
       const response = await fetch(`${API_BASE_URL}/api/payment/coinselect`, {
@@ -308,11 +330,24 @@ export const paymentsAPI = {
 export const ordersAPI = {
   // Get all orders
   getAll: async (params = {}) => {
-    const queryString = new URLSearchParams(params).toString();
+    const cleanParams = {};
+    Object.keys(params).forEach(key => {
+      const value = params[key];
+      // Only include params that have actual values
+      if (value !== undefined && value !== null && value !== 'undefined' && value !== 'null' && value !== '') {
+        cleanParams[key] = value;
+      }
+    });
+
+    const queryString = new URLSearchParams(cleanParams).toString();
+    
     return await apiRequest(`/api/orders${queryString ? `?${queryString}` : ''}`, {
       method: 'GET',
       emptyResultsOk: true,
-      emptyData: [] // Return empty array for new users
+      emptyData: [],
+      enableCache: true,
+      cacheTTL: 3,
+      cacheParams: cleanParams
     });
   },
 
@@ -333,6 +368,17 @@ export const ordersAPI = {
 
   // Update order
   update: async (orderId, updateData) => {
+    console.log('🔄 Updating order via API:', orderId, updateData);
+    
+    if (!orderId) {
+      throw new Error('Order ID is required for update');
+    }
+    
+    // Validate updateData
+    if (updateData.amountUSD && (isNaN(updateData.amountUSD) || updateData.amountUSD <= 0)) {
+      throw new Error('Invalid amount provided');
+    }
+    
     return await apiRequest(`/api/orders/${orderId}`, {
       method: 'PUT',
       body: updateData
@@ -341,6 +387,10 @@ export const ordersAPI = {
 
   // Delete order
   delete: async (orderId) => {
+    if (!orderId) {
+      throw new Error('Order ID is required for deletion');
+    }
+    
     return await apiRequest(`/api/orders/${orderId}`, {
       method: 'DELETE'
     });
@@ -517,11 +567,21 @@ export const paymentProcessingAPI = {
         credentials: 'include'
       });
 
+      const data = await response.json();
+
+      // Handle specific error codes for deactivated/paused states
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        if (data.errorCode === 'API_PAUSED') {
+          throw new Error(`PAYMENT_PAUSED: ${data.message}`);
+        } else if (data.errorCode === 'ORDER_DEACTIVATED') {
+          throw new Error(`ORDER_DEACTIVATED: ${data.message}`);
+        } else if (data.errorCode === 'ORDER_CANCELLED') {
+          throw new Error(`ORDER_CANCELLED: ${data.message}`);
+        }
+        throw new Error(data.message || `HTTP ${response.status}: ${response.statusText}`);
       }
 
-      return await response.json();
+      return data;
     } catch (error) {
       console.error('Payment validation API error:', error);
       throw error;
@@ -621,25 +681,32 @@ export const notificationsAPI = {
 
 // Enhanced Dashboard API with better caching
 export const dashboardAPI = {
-  getOverview: async () => {
+  getOverview: async (period = '30', forceRefresh = false) => {
     try {
-      return await apiRequest('/api/dashboard/overview', {
-        enableCache: true,
+      // Add period as a query parameter
+      return await apiRequest(`/api/dashboard/overview?period=${period}`, {
+        enableCache: !forceRefresh,
         cacheTTL: 3, // Cache for 3 minutes
         emptyResultsOk: true,
         emptyData: {
           todayMetrics: {
             totalSales: 0,
             transactionCount: 0,
-            volume: { USDT: 0, PYUSD: 0, BTC: 0, ETH: 0, MATIC: 0 },
-            currentMonthSummary: { totalPayments: 0, completed: 0, failed: 0, pending: 0 }
+            // Updated volume structure
+            volume: { USDT: 0, USDC: 0, BTC: 0, ETH: 0, MATIC: 0, SOL: 0 },
+            currentMonthSummary: { totalPayments: 0, completed: 0, failed: 0, pending: 0 },
+            averageTransactionValue: 0,
+            topCryptoCurrency: 'USDT'
           },
           monthlyMetrics: {
             totalSales: 0,
             transactionCount: 0,
-            volume: { USDT: 0, PYUSD: 0, BTC: 0, ETH: 0, MATIC: 0 }
+            // Updated volume structure
+            volume: { USDT: 0, USDC: 0, BTC: 0, ETH: 0, MATIC: 0, SOL: 0 }
           },
-          orderStats: { total: 0, pending: 0, processing: 0, completed: 0, cancelled: 0 }
+          orderStats: { total: 0, pending: 0, processing: 0, completed: 0, cancelled: 0 },
+          dailyBreakdown: [],
+          cryptoDistribution: []
         }
       });
     } catch (error) {
@@ -649,15 +716,19 @@ export const dashboardAPI = {
         todayMetrics: {
           totalSales: 0,
           transactionCount: 0,
-          volume: { USDT: 0, PYUSD: 0, BTC: 0, ETH: 0, MATIC: 0 },
-          currentMonthSummary: { totalPayments: 0, completed: 0, failed: 0, pending: 0 }
+          volume: { USDT: 0, USDC: 0, BTC: 0, ETH: 0, MATIC: 0, SOL: 0 },
+          currentMonthSummary: { totalPayments: 0, completed: 0, failed: 0, pending: 0 },
+          averageTransactionValue: 0,
+          topCryptoCurrency: 'USDT'
         },
         monthlyMetrics: {
           totalSales: 0,
           transactionCount: 0,
-          volume: { USDT: 0, PYUSD: 0, BTC: 0, ETH: 0, MATIC: 0 }
+          volume: { USDT: 0, USDC: 0, BTC: 0, ETH: 0, MATIC: 0, SOL: 0 }
         },
-        orderStats: { total: 0, pending: 0, processing: 0, completed: 0, cancelled: 0 }
+        orderStats: { total: 0, pending: 0, processing: 0, completed: 0, cancelled: 0 },
+        dailyBreakdown: [],
+        cryptoDistribution: []
       };
     }
   },
@@ -712,7 +783,7 @@ export const dashboardAPI = {
   }),
 };
 
-// Enhanced Payment Config API with caching
+// Enhanced Payment Config API with network support
 export const paymentConfigAPI = {
   getConfig: async () => {
     try {
@@ -742,11 +813,9 @@ export const paymentConfigAPI = {
     }
   },
 
-  updateConfig: async (cryptoId, configData) => {
+  updateConfig: async (cryptoType, network, configData) => {
     try {
-      const coinType = cryptoId.includes('_') ? cryptoId.split('_')[1] : cryptoId;
-      
-      const response = await apiRequest(`/api/payment-config/crypto/${coinType}`, {
+      const response = await apiRequest(`/api/payment-config/crypto/${cryptoType}/${network}`, {
         method: 'PUT',
         body: configData
       });
@@ -758,10 +827,10 @@ export const paymentConfigAPI = {
     }
   },
 
-  // Toggle crypto enabled/disabled
-  toggleCrypto: async (coinType, enabled) => {
+  // Toggle crypto enabled/disabled with network support
+  toggleCrypto: async (coinType, network, enabled) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/payment-config/crypto/${coinType}/toggle`, {
+      const response = await fetch(`${API_BASE_URL}/api/payment-config/crypto/${coinType}/${network}/toggle`, {
         method: 'PUT',
         credentials: 'include',
         headers: {

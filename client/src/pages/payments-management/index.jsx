@@ -40,6 +40,7 @@ const PaymentsManagement = () => {
         search: '',
         status: 'all',
         cryptocurrency: 'all',
+        network: 'all'
     });
 
     // --- DATA FETCHING ---
@@ -54,6 +55,8 @@ const PaymentsManagement = () => {
           limit: itemsPerPage,
           status: filters.status !== 'all' ? filters.status : undefined,
           search: filters.search || undefined,
+          cryptoType: filters.cryptocurrency !== 'all' ? filters.cryptocurrency : undefined,
+          network: filters.network !== 'all' ? filters.network : undefined,
           sortBy: sortConfig.key,
           sortOrder: sortConfig.direction
         });
@@ -66,14 +69,21 @@ const PaymentsManagement = () => {
           sortOrder: sortConfig.direction
         };
 
-        // Only add status filter if it's not 'all' and not empty
+        // Only add filters if they're not 'all' and not empty
         if (filters.status && filters.status !== 'all') {
           apiParams.status = filters.status;
         }
 
-        // Only add search if it's not empty
         if (filters.search && filters.search.trim() !== '') {
           apiParams.search = filters.search.trim();
+        }
+
+        if (filters.cryptocurrency && filters.cryptocurrency !== 'all') {
+          apiParams.cryptoType = filters.cryptocurrency;
+        }
+
+        if (filters.network && filters.network !== 'all') {
+          apiParams.network = filters.network;
         }
 
         console.log('📤 API params being sent:', apiParams);
@@ -86,7 +96,7 @@ const PaymentsManagement = () => {
         if (response.success) {
           const paymentsData = response.payments || [];
           
-          // Transform payment data to ensure consistent format
+          // Transform payment data to ensure consistent format with network support
           const transformedPayments = paymentsData.map(payment => ({
             ...payment,
             payId: payment.payId || payment.id,
@@ -96,6 +106,7 @@ const PaymentsManagement = () => {
             amountCrypto: payment.amountCrypto || 0,
             cryptoType: payment.cryptoType || payment.cryptoCurrency || 'Unknown',
             cryptoSymbol: payment.cryptoSymbol || payment.cryptoType || payment.cryptoCurrency || 'Unknown',
+            network: payment.network || 'Unknown',
             status: payment.status || 'pending',
             createdAt: payment.createdAt || payment.timestamp || new Date().toISOString()
           }));
@@ -128,6 +139,8 @@ const PaymentsManagement = () => {
         // Check if it's a network error or authentication error
         if (err.message.includes('403') || err.message.includes('401')) {
           setError('Authentication required. Please log in again.');
+        } else if (err.message.includes('API_PAUSED')) {
+          setError('Payment processing is currently paused. Please contact support to reactivate your account.');
         } else if (err.message.includes('404')) {
           // For new users, show empty state instead of error
           console.log('👤 No payments found (new user)');
@@ -162,6 +175,9 @@ const PaymentsManagement = () => {
         }
         if (filters.cryptocurrency !== 'all') {
             filtered = filtered.filter(p => p.cryptoType === filters.cryptocurrency);
+        }
+        if (filters.network !== 'all') {
+            filtered = filtered.filter(p => p.network === filters.network);
         }
 
         // Apply sorting
@@ -275,7 +291,7 @@ const PaymentsManagement = () => {
 
             {/* Filters */}
             <div className="bg-surface rounded-lg border border-border p-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <input
                         type="text"
                         placeholder="Search by ID, name, or email..."
@@ -291,9 +307,21 @@ const PaymentsManagement = () => {
                     </select>
                     <select value={filters.cryptocurrency} onChange={(e) => setFilters(prev => ({...prev, cryptocurrency: e.target.value}))} className="w-full px-4 py-2 bg-background border border-border rounded-lg">
                         <option value="all">All Crypto</option>
+                        <option value="BTC">Bitcoin</option>
+                        <option value="ETH">Ethereum</option>
+                        <option value="USDT">USDT</option>
+                        <option value="USDC">USDC</option>
+                        <option value="MATIC">MATIC</option>
+                        <option value="SOL">Solana</option>
+                    </select>
+                    <select value={filters.network} onChange={(e) => setFilters(prev => ({...prev, network: e.target.value}))} className="w-full px-4 py-2 bg-background border border-border rounded-lg">
+                        <option value="all">All Networks</option>
                         <option value="Bitcoin">Bitcoin</option>
                         <option value="Ethereum">Ethereum</option>
-                        <option value="USDT">USDT</option>
+                        <option value="Polygon">Polygon</option>
+                        <option value="BSC">BSC</option>
+                        <option value="Tron">Tron</option>
+                        <option value="Solana">Solana</option>
                     </select>
                 </div>
             </div>
@@ -308,6 +336,7 @@ const PaymentsManagement = () => {
                                 <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider cursor-pointer" onClick={() => handleSort('payId')}>Transaction ID</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Customer</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider cursor-pointer" onClick={() => handleSort('amountUSD')}>Amount</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Crypto & Network</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Status</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider cursor-pointer" onClick={() => handleSort('createdAt')}>Date</th>
                                 <th className="px-6 py-3 text-right text-xs font-medium text-text-secondary uppercase tracking-wider">Actions</th>
@@ -338,6 +367,12 @@ const PaymentsManagement = () => {
                                         </div>
                                       </div>
                                     </td>
+                                    <td className="px-6 py-4">
+                                      <div>
+                                        <div className="font-medium">{payment.cryptoType}</div>
+                                        <div className="text-xs text-text-secondary">{payment.network}</div>
+                                      </div>
+                                    </td>
                                     <td className="px-6 py-4">{getStatusComponent(payment.status)}</td>
                                     <td className="px-6 py-4 text-sm text-text-secondary">
                                       {formatDate(payment.createdAt)}
@@ -352,7 +387,7 @@ const PaymentsManagement = () => {
                                     </td>
                                 </tr>
                             )) : (
-                                <tr><td colSpan="7" className="text-center py-12">No payments match the current filters.</td></tr>
+                                <tr><td colSpan="8" className="text-center py-12">No payments match the current filters.</td></tr>
                             )}
                         </tbody>
                     </table>

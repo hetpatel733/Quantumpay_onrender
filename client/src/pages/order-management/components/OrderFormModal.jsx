@@ -1,60 +1,43 @@
-// src/pages/portfolio-management/components/ItemFormModal.jsx
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import Icon from 'components/AppIcon';
 import Image from 'components/AppImage';
 
-const ItemFormModal = ({ isOpen, onClose, onSave, item = null }) => {
+const OrderFormModal = ({ isOpen, onClose, onSave, order = null }) => {
   const modalRef = useRef(null);
   const [isDragging, setIsDragging] = useState(false);
   const [errors, setErrors] = useState({});
   
   const [formData, setFormData] = useState({
-    name: '',
+    productName: '',
     description: '',
-    price: '',
-    cryptoType: 'Bitcoin',
-    cryptoAmount: '',
-    address: '',
+    amountUSD: '',
     image: '',
     status: 'active'
   });
 
-  // Initialize form with item data if editing
+  // Initialize form with order data if editing
   useEffect(() => {
-    if (item) {
+    if (order) {
       setFormData({
-        name: item.name || '',
-        description: item.description || '',
-        price: item.price?.toString() || '',
-        cryptoType: item.cryptoPrice?.type || 'Bitcoin',
-        cryptoAmount: item.cryptoPrice?.amount?.toString() || '',
-        address: item.address || '',
-        image: item.image || '',
-        status: item.status || 'active'
+        productName: order.productName || '',
+        description: order.description || '',
+        amountUSD: order.amountUSD?.toString() || '',
+        image: order.image || '',
+        status: order.isActive ? 'active' : 'inactive'
       });
     } else {
-      // Reset form for new item
+      // Reset form for new order
       setFormData({
-        name: '',
+        productName: '',
         description: '',
-        price: '',
-        cryptoType: 'Bitcoin',
-        cryptoAmount: '',
-        address: '',
+        amountUSD: '',
         image: '',
         status: 'active'
       });
     }
     setErrors({});
-  }, [item, isOpen]);
-
-  const cryptocurrencyOptions = [
-    { value: 'Bitcoin', label: 'Bitcoin (BTC)', symbol: 'BTC' },
-    { value: 'Ethereum', label: 'Ethereum (ETH)', symbol: 'ETH' },
-    { value: 'USDT', label: 'Tether (USDT)', symbol: 'USDT' },
-    { value: 'USDC', label: 'USD Coin (USDC)', symbol: 'USDC' }
-  ];
+  }, [order, isOpen]);
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({
@@ -71,62 +54,37 @@ const ItemFormModal = ({ isOpen, onClose, onSave, item = null }) => {
     }
   };
 
+  const validateForm = () => {
+    const newErrors = {};
+    
+    if (!formData.productName.trim()) {
+      newErrors.productName = 'Product name is required';
+    }
+    
+    if (!formData.amountUSD) {
+      newErrors.amountUSD = 'Price is required';
+    } else if (isNaN(formData.amountUSD) || parseFloat(formData.amountUSD) <= 0) {
+      newErrors.amountUSD = 'Price must be a positive number';
+    }
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
-    console.log('📋 Form submission started');
-    console.log('📋 Current form data:', formData);
-    
     if (validateForm()) {
       const formattedData = {
-        productName: formData.name.trim(),
+        productName: formData.productName.trim(),
         description: formData.description.trim(),
-        amountUSD: parseFloat(formData.price),
+        amountUSD: parseFloat(formData.amountUSD),
         image: formData.image,
         isActive: formData.status === 'active'
       };
       
-      console.log('📋 Formatted data being submitted:', formattedData);
-      
-      // Validate required fields one more time
-      if (!formattedData.productName) {
-        alert('Product name is required');
-        return;
-      }
-      
-      if (isNaN(formattedData.amountUSD) || formattedData.amountUSD <= 0) {
-        alert('Valid price is required');
-        return;
-      }
-      
-      console.log('📋 Calling onSave function...');
-      
-      try {
-        onSave(formattedData);
-      } catch (error) {
-        console.error('❌ Error in onSave:', error);
-        alert('Error saving item: ' + error.message);
-      }
-    } else {
-      console.log('❌ Form validation failed:', errors);
+      console.log('📋 Order form data being submitted:', formattedData);
+      onSave(formattedData);
     }
-  };
-
-  const validateForm = () => {
-    const newErrors = {};
-    
-    if (!formData.name.trim()) {
-      newErrors.name = 'Product name is required';
-    }
-    
-    if (!formData.price) {
-      newErrors.price = 'Price is required';
-    } else if (isNaN(formData.price) || parseFloat(formData.price) <= 0) {
-      newErrors.price = 'Price must be a positive number';
-    }
-    
-    console.log('🔍 Validation errors:', newErrors);
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
   };
 
   const handleImageUpload = (e) => {
@@ -209,9 +167,9 @@ const ItemFormModal = ({ isOpen, onClose, onSave, item = null }) => {
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-border">
           <div className="flex items-center space-x-3">
-            <Icon name={item ? 'Edit' : 'Plus'} size={24} color="currentColor" className="text-primary" />
+            <Icon name={order ? 'Edit' : 'Plus'} size={24} color="currentColor" className="text-primary" />
             <h2 className="text-xl font-semibold text-text-primary">
-              {item ? 'Edit Portfolio Item' : 'Add New Item'}
+              {order ? 'Edit Product/Service' : 'Create New Product/Service'}
             </h2>
           </div>
           <button
@@ -299,29 +257,29 @@ const ItemFormModal = ({ isOpen, onClose, onSave, item = null }) => {
             </div>
 
             {/* Product Details */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="md:col-span-2">
+            <div className="space-y-4">
+              <div>
                 <label className="block text-sm font-medium text-text-secondary mb-2">
-                  Product Name *
+                  Product/Service Name *
                 </label>
                 <input
                   type="text"
-                  value={formData.name}
-                  onChange={(e) => handleInputChange('name', e.target.value)}
+                  value={formData.productName}
+                  onChange={(e) => handleInputChange('productName', e.target.value)}
                   className={`
                     w-full px-3 py-2 border rounded-lg
                     focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent
                     text-text-primary bg-background
-                    ${errors.name ? 'border-error' : 'border-border'}
+                    ${errors.productName ? 'border-error' : 'border-border'}
                   `}
-                  placeholder="Enter product name"
+                  placeholder="Enter product or service name"
                 />
-                {errors.name && (
-                  <p className="mt-1 text-sm text-error">{errors.name}</p>
+                {errors.productName && (
+                  <p className="mt-1 text-sm text-error">{errors.productName}</p>
                 )}
               </div>
 
-              <div className="md:col-span-2">
+              <div>
                 <label className="block text-sm font-medium text-text-secondary mb-2">
                   Description
                 </label>
@@ -334,63 +292,65 @@ const ItemFormModal = ({ isOpen, onClose, onSave, item = null }) => {
                     focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent
                     text-text-primary bg-background resize-none
                   "
-                  placeholder="Describe your product"
+                  placeholder="Describe your product or service"
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-text-secondary mb-2">
-                  Price (USD) *
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <span className="text-text-secondary">$</span>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-text-secondary mb-2">
+                    Price (USD) *
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <span className="text-text-secondary">$</span>
+                    </div>
+                    <input
+                      type="text"
+                      value={formData.amountUSD}
+                      onChange={(e) => handleInputChange('amountUSD', e.target.value)}
+                      className={`
+                        w-full pl-8 pr-3 py-2 border rounded-lg
+                        focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent
+                        text-text-primary bg-background
+                        ${errors.amountUSD ? 'border-error' : 'border-border'}
+                      `}
+                      placeholder="0.00"
+                    />
                   </div>
-                  <input
-                    type="text"
-                    value={formData.price}
-                    onChange={(e) => handleInputChange('price', e.target.value)}
-                    className={`
-                      w-full pl-8 pr-3 py-2 border rounded-lg
-                      focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent
-                      text-text-primary bg-background
-                      ${errors.price ? 'border-error' : 'border-border'}
-                    `}
-                    placeholder="0.00"
-                  />
+                  {errors.amountUSD && (
+                    <p className="mt-1 text-sm text-error">{errors.amountUSD}</p>
+                  )}
                 </div>
-                {errors.price && (
-                  <p className="mt-1 text-sm text-error">{errors.price}</p>
-                )}
-              </div>
 
-              <div>
-                <label className="block text-sm font-medium text-text-secondary mb-2">
-                  Status
-                </label>
-                <div className="flex items-center space-x-4">
-                  <label className="inline-flex items-center">
-                    <input
-                      type="radio"
-                      name="status"
-                      value="active"
-                      checked={formData.status === 'active'}
-                      onChange={() => handleInputChange('status', 'active')}
-                      className="form-radio text-primary focus:ring-primary h-4 w-4"
-                    />
-                    <span className="ml-2 text-text-primary">Active</span>
+                <div>
+                  <label className="block text-sm font-medium text-text-secondary mb-2">
+                    Status
                   </label>
-                  <label className="inline-flex items-center">
-                    <input
-                      type="radio"
-                      name="status"
-                      value="inactive"
-                      checked={formData.status === 'inactive'}
-                      onChange={() => handleInputChange('status', 'inactive')}
-                      className="form-radio text-primary focus:ring-primary h-4 w-4"
-                    />
-                    <span className="ml-2 text-text-primary">Inactive</span>
-                  </label>
+                  <div className="flex items-center space-x-4 mt-3">
+                    <label className="inline-flex items-center">
+                      <input
+                        type="radio"
+                        name="status"
+                        value="active"
+                        checked={formData.status === 'active'}
+                        onChange={() => handleInputChange('status', 'active')}
+                        className="form-radio text-primary focus:ring-primary h-4 w-4"
+                      />
+                      <span className="ml-2 text-text-primary">Active</span>
+                    </label>
+                    <label className="inline-flex items-center">
+                      <input
+                        type="radio"
+                        name="status"
+                        value="inactive"
+                        checked={formData.status === 'inactive'}
+                        onChange={() => handleInputChange('status', 'inactive')}
+                        className="form-radio text-primary focus:ring-primary h-4 w-4"
+                      />
+                      <span className="ml-2 text-text-primary">Inactive</span>
+                    </label>
+                  </div>
                 </div>
               </div>
             </div>
@@ -415,10 +375,7 @@ const ItemFormModal = ({ isOpen, onClose, onSave, item = null }) => {
           <div className="flex items-center justify-end space-x-3 pt-6 mt-6 border-t border-border">
             <button
               type="button"
-              onClick={() => {
-                console.log('❌ Cancel button clicked');
-                onClose();
-              }}
+              onClick={onClose}
               className="
                 px-4 py-2 border border-border rounded-lg
                 text-text-secondary hover:text-text-primary
@@ -429,10 +386,6 @@ const ItemFormModal = ({ isOpen, onClose, onSave, item = null }) => {
             </button>
             <button 
               type="submit"
-              onClick={(e) => {
-                console.log('💾 Submit button clicked');
-                handleSubmit(e);
-              }}
               className="
                 px-4 py-2 bg-primary text-white rounded-lg
                 hover:bg-primary-700 transition-smooth
@@ -440,7 +393,7 @@ const ItemFormModal = ({ isOpen, onClose, onSave, item = null }) => {
               "
             >
               <Icon name="Save" size={16} color="currentColor" />
-              <span>{item ? 'Update Item' : 'Create Product'}</span>
+              <span>{order ? 'Update Product' : 'Create Product'}</span>
             </button>
           </div>
         </form>
@@ -451,4 +404,4 @@ const ItemFormModal = ({ isOpen, onClose, onSave, item = null }) => {
   return createPortal(modalContent, document.body);
 };
 
-export default ItemFormModal;
+export default OrderFormModal;

@@ -15,10 +15,11 @@ const dashboardDailyMetricSchema = new mongoose.Schema({
     },
     volume: {
         USDT: { type: Number, default: 0 },
-        PYUSD: { type: Number, default: 0 },
+        USDC: { type: Number, default: 0 },
         BTC: { type: Number, default: 0 },
         ETH: { type: Number, default: 0 },
-        MATIC: { type: Number, default: 0 }
+        MATIC: { type: Number, default: 0 },
+        SOL: { type: Number, default: 0 }
     },
     currentMonthSummary: {
         totalPayments: { type: Number, default: 0 },

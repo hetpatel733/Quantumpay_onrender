@@ -9,44 +9,44 @@ const {
   validatePaymentRequest 
 } = require('../services/payment');
 
-// Coin selection and payment creation
+// Coin selection and payment creation (NO AUTHENTICATION - for customer use)
 router.post('/coinselect', (req, res) => {
   CoinselectFunction(req, res);
 });
 
-// Get payment details for frontend (fix endpoint)
+// Get payment details for frontend (NO AUTHENTICATION - for customer use)
 router.get('/payment-details', async (req, res) => {
   getPaymentDetails(req, res);
 });
 
-// Check payment status (fix endpoint)
+// Check payment status (NO AUTHENTICATION - for customer use)
 router.get('/check-status', async (req, res) => {
   checkstatus(req, res);
 });
 
-// Validate payment request for coin selection (fix endpoint)
+// Validate payment request for coin selection (NO AUTHENTICATION - for customer use)
 router.get('/validate-payment', async (req, res) => {
   validatePaymentRequest(req, res);
 });
 
-// Legacy routes for backward compatibility
+// Legacy routes for backward compatibility (NO AUTHENTICATION - for customer use)
 router.get('/process/:api/:order_id', async (req, res) => {
   const { api, order_id } = req.params;
   paymentFunction(api, order_id, res);
 });
 
-// Add missing root route for payment processing
+// Add missing root route for payment processing (NO AUTHENTICATION - for customer use)
 router.get('/:api/:order_id', async (req, res) => {
   const { api, order_id } = req.params;
   paymentFunction(api, order_id, res);
 });
 
-// Final payment processing (background)
+// Final payment processing (background) (NO AUTHENTICATION - for customer use)
 router.get('/finalize', async (req, res) => {
   FinalpayFunction(req, res);
 });
 
-// Mount payment configuration routes
+module.exports = router;
 router.use('/config', require('./paymentConfigRoutes'));
 
 module.exports = router;

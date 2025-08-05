@@ -122,7 +122,16 @@ router.put('/:id', authenticateUser, async (req, res) => {
     // Update fields
     if (label !== undefined) apiKey.label = label;
     if (permissions !== undefined) apiKey.permissions = Array.isArray(permissions) ? permissions : [permissions];
-    if (isActive !== undefined) apiKey.isActive = isActive;
+    if (isActive !== undefined) {
+      apiKey.isActive = isActive;
+      
+      // Add validation message when API is being paused/activated
+      if (!isActive) {
+        console.log('⚠️ API key being paused:', id, '- Payment processing will be disabled');
+      } else {
+        console.log('✅ API key being activated:', id, '- Payment processing will be enabled');
+      }
+    }
 
     await apiKey.save();
     console.log('✅ API key updated successfully');
@@ -139,7 +148,7 @@ router.put('/:id', authenticateUser, async (req, res) => {
         lastUsed: apiKey.lastUsed,
         usageCount: apiKey.usageCount || 0
       },
-      message: 'API key updated successfully'
+      message: `API key updated successfully${!isActive ? ' - Payment processing is now paused' : isActive ? ' - Payment processing is now active' : ''}`
     });
   } catch (error) {
     console.error('❌ Error updating API key:', error);

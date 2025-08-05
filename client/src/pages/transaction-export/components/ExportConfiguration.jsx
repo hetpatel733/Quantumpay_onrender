@@ -22,7 +22,9 @@ const ExportConfiguration = ({ config, onConfigChange }) => {
     { value: 'Bitcoin', label: 'Bitcoin (BTC)' },
     { value: 'Ethereum', label: 'Ethereum (ETH)' },
     { value: 'USDT', label: 'Tether (USDT)' },
-    { value: 'USDC', label: 'USD Coin (USDC)' }
+    { value: 'USDC', label: 'USD Coin (USDC)' },
+    { value: 'MATIC', label: 'Polygon (MATIC)' },
+    { value: 'SOL', label: 'Solana (SOL)' }
   ];
 
   const formatOptions = [

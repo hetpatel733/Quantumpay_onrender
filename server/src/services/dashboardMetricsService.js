@@ -1,5 +1,5 @@
 const { DashboardDailyMetric } = require('../models/DashboardDailyMetric');
-const { Payment } = require('../models/payment');
+const { Payment } = require('../models/Payment');
 
 /**
  * Update dashboard metrics when a payment status changes
@@ -25,7 +25,15 @@ const updatePaymentMetrics = async (paymentData, previousStatus = null) => {
             todayMetrics = new DashboardDailyMetric({
                 businessEmail,
                 date: today,
-                volume: { USDT: 0, PYUSD: 0, BTC: 0, ETH: 0, MATIC: 0 },
+                // Updated volume structure for new crypto types
+                volume: { 
+                    USDT: 0, 
+                    USDC: 0, 
+                    BTC: 0, 
+                    ETH: 0,
+                    MATIC: 0,
+                    SOL: 0
+                },
                 currentMonthSummary: { totalPayments: 0, completed: 0, failed: 0, pending: 0 },
                 totalSales: 0,
                 transactionCount: 0,
@@ -73,17 +81,21 @@ const updatePaymentMetrics = async (paymentData, previousStatus = null) => {
             todayMetrics.totalSales += amountUSD;
             todayMetrics.transactionCount += 1;
             
-            // Add to crypto volume
-            if (todayMetrics.volume[cryptoType] !== undefined) {
-                todayMetrics.volume[cryptoType] += amountUSD;
-            } else {
-                todayMetrics.volume[cryptoType] = amountUSD;
+            // Add to crypto volume - only supported types
+            if (['USDT', 'USDC', 'BTC', 'ETH', 'MATIC', 'SOL'].includes(cryptoType)) {
+                if (todayMetrics.volume[cryptoType] !== undefined) {
+                    todayMetrics.volume[cryptoType] += amountUSD;
+                } else {
+                    todayMetrics.volume[cryptoType] = amountUSD;
+                }
             }
             
-            // Update completion timestamp
+            // Update completion timestamp - ONLY for payments, not orders
             if (!paymentData.completedAt) {
                 paymentData.completedAt = new Date();
             }
+            
+            // DO NOT update any order status here - orders are products that can be purchased multiple times
             
         } else if (currentStatus === 'failed') {
             todayMetrics.currentMonthSummary.failed += 1;
@@ -135,7 +147,8 @@ const recalculateMetrics = async (businessEmail, date = null) => {
         
         // Initialize metrics
         const metrics = {
-            volume: { USDT: 0, PYUSD: 0, BTC: 0, ETH: 0, MATIC: 0 },
+            // Updated volume structure
+            volume: { USDT: 0, USDC: 0, BTC: 0, ETH: 0, MATIC: 0, SOL: 0 },
             currentMonthSummary: { totalPayments: payments.length, completed: 0, failed: 0, pending: 0 },
             totalSales: 0,
             transactionCount: 0,
@@ -155,11 +168,13 @@ const recalculateMetrics = async (businessEmail, date = null) => {
                 metrics.totalSales += amountUSD;
                 metrics.transactionCount += 1;
                 
-                // Add to crypto volume
-                if (metrics.volume[cryptoType] !== undefined) {
-                    metrics.volume[cryptoType] += amountUSD;
-                } else {
-                    metrics.volume[cryptoType] = amountUSD;
+                // Only add to volume if it's a supported crypto type
+                if (['USDT', 'USDC', 'BTC', 'ETH', 'MATIC', 'SOL'].includes(cryptoType)) {
+                    if (metrics.volume[cryptoType] !== undefined) {
+                        metrics.volume[cryptoType] += amountUSD;
+                    } else {
+                        metrics.volume[cryptoType] = amountUSD;
+                    }
                 }
             } else if (status === 'failed') {
                 metrics.currentMonthSummary.failed += 1;
@@ -232,7 +247,7 @@ const getMonthlySummary = async (businessEmail, month) => {
         const summary = {
             totalSales: 0,
             transactionCount: 0,
-            volume: { USDT: 0, PYUSD: 0, BTC: 0, ETH: 0, MATIC: 0 },
+            volume: { USDT: 0, USDC: 0, BTC: 0, ETH: 0, MATIC: 0, SOL: 0 },
             paymentsSummary: { totalPayments: 0, completed: 0, failed: 0, pending: 0 }
         };
         
@@ -292,7 +307,7 @@ const initializeBusinessMetrics = async (businessEmail) => {
             const initialMetrics = new DashboardDailyMetric({
                 businessEmail,
                 date: today,
-                volume: { USDT: 0, PYUSD: 0, BTC: 0, ETH: 0, MATIC: 0 },
+                volume: { USDT: 0, USDC: 0, BTC: 0, ETH: 0, MATIC: 0, SOL: 0 },
                 currentMonthSummary: { totalPayments: 0, completed: 0, failed: 0, pending: 0 },
                 totalSales: 0,
                 transactionCount: 0,

@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { DashboardDailyMetric } = require('../models/DashboardDailyMetric');
-const { Payment } = require('../models/payment');
+const { Payment } = require('../models/Payment');
 const { Order } = require('../models/Order');
 const { authenticateUser } = require('../services/auth');
 const { recalculateMetrics, getMetricsForRange, getMonthlySummary } = require('../services/dashboardMetricsService');
@@ -10,14 +10,9 @@ const { recalculateMetrics, getMetricsForRange, getMonthlySummary } = require('.
 router.get('/overview', authenticateUser, async (req, res) => {
   try {
     const businessEmail = req.user.email;
-    
-    // Get today's date in YYYY-MM-DD format
     const today = new Date().toISOString().split('T')[0];
+    const currentMonth = today.substring(0, 7);
     
-    // Get current month
-    const currentMonth = today.substring(0, 7); // YYYY-MM format
-    
-    // Check if user is business type
     const { User } = require('../models/User');
     const user = await User.findOne({ email: businessEmail });
     
@@ -27,7 +22,8 @@ router.get('/overview', authenticateUser, async (req, res) => {
         todayMetrics: {
           businessEmail,
           date: today,
-          volume: { USDT: 0, PYUSD: 0, BTC: 0, ETH: 0, MATIC: 0 },
+          // Updated volume structure
+          volume: { USDT: 0, USDC: 0, BTC: 0, ETH: 0, MATIC: 0, SOL: 0 },
           currentMonthSummary: { totalPayments: 0, completed: 0, failed: 0, pending: 0 },
           totalSales: 0,
           transactionCount: 0,
@@ -37,7 +33,8 @@ router.get('/overview', authenticateUser, async (req, res) => {
         monthlyMetrics: {
           totalSales: 0,
           transactionCount: 0,
-          volume: { USDT: 0, PYUSD: 0, BTC: 0, ETH: 0, MATIC: 0 }
+          // Updated volume structure
+          volume: { USDT: 0, USDC: 0, BTC: 0, ETH: 0, MATIC: 0, SOL: 0 }
         },
         orderStats: { total: 0, pending: 0, processing: 0, completed: 0, cancelled: 0 }
       });
@@ -179,12 +176,11 @@ router.get('/overview', authenticateUser, async (req, res) => {
     const monthly = monthlyStats[0] || { totalPayments: 0, completed: 0, pending: 0, failed: 0, totalSales: 0 };
     const todayMetricsData = todayStats[0] || { totalPayments: 0, completed: 0, totalSales: 0 };
     
-    // Build volume object
-    const volume = { USDT: 0, PYUSD: 0, BTC: 0, ETH: 0, MATIC: 0 };
+    // Build volume object with new crypto types
+    const volume = { USDT: 0, USDC: 0, BTC: 0, ETH: 0, MATIC: 0, SOL: 0 };
     monthlyVolumeByCrypto.forEach(item => {
-      if (volume[item._id] !== undefined) {
-        volume[item._id] = item.volume;
-      } else {
+      // Only include supported cryptocurrencies
+      if (['USDT', 'USDC', 'BTC', 'ETH', 'MATIC', 'SOL'].includes(item._id)) {
         volume[item._id] = item.volume;
       }
     });
@@ -229,7 +225,7 @@ router.get('/overview', authenticateUser, async (req, res) => {
       last7Days.push(dateStr);
     }
     
-    // Get daily breakdown for chart
+    // Get daily breakdown for chart with updated crypto types
     const dailyBreakdown = await Promise.all(
       last7Days.map(async (dateStr) => {
         const dayStart = new Date(dateStr + 'T00:00:00.000Z');
@@ -251,9 +247,10 @@ router.get('/overview', authenticateUser, async (req, res) => {
           }
         ]);
         
-        const dayVolume = { USDT: 0, PYUSD: 0, BTC: 0, ETH: 0, MATIC: 0 };
+        // Updated day volume structure
+        const dayVolume = { USDT: 0, USDC: 0, BTC: 0, ETH: 0, MATIC: 0, SOL: 0 };
         dayData.forEach(item => {
-          if (dayVolume[item._id] !== undefined) {
+          if (['USDT', 'USDC', 'BTC', 'ETH', 'MATIC', 'SOL'].includes(item._id)) {
             dayVolume[item._id] = item.volume;
           }
         });
@@ -266,14 +263,12 @@ router.get('/overview', authenticateUser, async (req, res) => {
       })
     );
     
-    // Get current status counts from orders
-    const [totalOrders, pendingOrders, processingOrders, completedOrders, cancelledOrders] = 
+    // Get current product counts (orders) - only use isActive
+    const [totalProducts, activeProducts, inactiveProducts] = 
       await Promise.all([
         Order.countDocuments({ businessEmail }),
-        Order.countDocuments({ businessEmail, status: 'pending' }),
-        Order.countDocuments({ businessEmail, status: 'processing' }),
-        Order.countDocuments({ businessEmail, status: 'completed' }),
-        Order.countDocuments({ businessEmail, status: 'cancelled' })
+        Order.countDocuments({ businessEmail, isActive: true }),
+        Order.countDocuments({ businessEmail, isActive: false })
       ]);
     
     // Add timestamp to help client determine freshness
@@ -295,7 +290,6 @@ router.get('/overview', authenticateUser, async (req, res) => {
       timestamp: responseTimestamp,
       todayMetrics: {
         ...todayMetrics.toObject(),
-        // Override with real-time data
         currentMonthSummary: {
           totalPayments: monthly.totalPayments,
           completed: completedThisMonth,
@@ -310,15 +304,13 @@ router.get('/overview', authenticateUser, async (req, res) => {
         transactionCount: completedThisMonth,
         volume
       },
-      dailyBreakdown, // Now properly defined
-      orderStats: {
-        total: totalOrders,
-        pending: pendingOrders,
-        processing: processingOrders,
-        completed: completedOrders,
-        cancelled: cancelledOrders
+      dailyBreakdown, 
+      productStats: {
+        total: totalProducts,
+        active: activeProducts,
+        inactive: inactiveProducts
       },
-      debugInfo // Include debug info to help diagnose issues
+      debugInfo
     });
   } catch (error) {
     console.error('Error fetching dashboard overview:', error);
@@ -479,7 +471,9 @@ router.get('/crypto-distribution', authenticateUser, async (req, res) => {
         $match: {
           businessEmail,
           status: 'completed',
-          completedAt: { $gte: startDate }
+          completedAt: { $gte: startDate },
+          // Only include supported cryptocurrencies
+          cryptoType: { $in: ['USDT', 'USDC', 'BTC', 'ETH', 'MATIC', 'SOL'] }
         }
       },
       {
@@ -494,10 +488,8 @@ router.get('/crypto-distribution', authenticateUser, async (req, res) => {
       }
     ]);
 
-    // Calculate total volume
     const totalVolume = cryptoDistribution.reduce((sum, item) => sum + item.totalVolume, 0);
 
-    // Transform for frontend with percentages and colors
     const distributionData = cryptoDistribution.map(item => {
       let color = '#64748B'; // Default color
       
@@ -511,11 +503,14 @@ router.get('/crypto-distribution', authenticateUser, async (req, res) => {
         case 'USDT':
           color = '#26A17B';
           break;
-        case 'PYUSD':
+        case 'USDC':
           color = '#1FC7D4';
           break;
         case 'MATIC':
           color = '#8247E5';
+          break;
+        case 'SOL':
+          color = '#9945FF';
           break;
       }
 
@@ -616,6 +611,59 @@ router.get('/monthly-summary', authenticateUser, async (req, res) => {
   } catch (error) {
     console.error('Error fetching monthly summary:', error);
     res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// Get current cryptocurrency prices
+router.get('/crypto-prices', authenticateUser, async (req, res) => {
+  try {
+    const { symbols } = req.query;
+    const pricingService = require('../services/pricingService');
+    
+    // Parse requested symbols or use defaults
+    const requestedSymbols = symbols ? 
+      symbols.split(',').map(s => s.trim().toUpperCase()) : 
+      ['BTC', 'ETH', 'USDT', 'USDC', 'MATIC', 'SOL'];
+    
+    console.log('💰 Fetching crypto prices for:', requestedSymbols);
+    
+    const prices = await pricingService.getMultipleCryptoPrices(requestedSymbols);
+    
+    // Get additional trend data for major cryptocurrencies
+    const trendPromises = ['BTC', 'ETH', 'MATIC', 'SOL'].map(async (symbol) => {
+      if (requestedSymbols.includes(symbol)) {
+        try {
+          const trend = await pricingService.getPriceTrend(symbol);
+          return { symbol, trend };
+        } catch (error) {
+          return { symbol, trend: null, error: error.message };
+        }
+      }
+      return null;
+    });
+    
+    const trendResults = (await Promise.all(trendPromises)).filter(Boolean);
+    const trends = {};
+    trendResults.forEach(({ symbol, trend }) => {
+      trends[symbol] = trend;
+    });
+    
+    res.status(200).json({
+      success: true,
+      prices,
+      trends,
+      timestamp: new Date(),
+      source: 'binance',
+      cacheStatus: pricingService.getCacheStatus()
+    });
+  } catch (error) {
+    console.error('❌ Error fetching crypto prices:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Server error: ' + error.message,
+      prices: {},
+      trends: {}
+    });
   }
 });
 

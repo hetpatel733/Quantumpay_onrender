@@ -14,7 +14,7 @@ const notificationItemSchema = new mongoose.Schema({
     },
     type: {
         type: String,
-        enum: ['payment_completed', 'payment_failed', 'order_created', 'system', 'welcome'],
+        enum: ['payment_completed', 'payment_failed', 'product_created', 'system', 'welcome'], // Updated to include 'product_created'
         default: 'system'
     },
     isRead: {

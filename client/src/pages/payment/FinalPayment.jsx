@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import Icon from 'components/AppIcon';
 import { paymentsAPI } from 'utils/api';
@@ -14,18 +14,34 @@ const FinalPayment = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [paymentStatus, setPaymentStatus] = useState('pending');
+  const [isPolling, setIsPolling] = useState(false);
 
-  // Helper function to get network name
-  const getNetworkName = (cryptoType) => {
-    const networks = {
+  // Add refs to track intervals and prevent memory leaks
+  const statusIntervalRef = useRef(null);
+  const pollingIntervalRef = useRef(null);
+
+  // Enhanced helper function to get network name with proper mapping
+  const getNetworkName = (cryptoType, network) => {
+    if (network) {
+      const networkNames = {
+        'Bitcoin': 'Bitcoin Network',
+        'Ethereum': 'Ethereum Network',
+        'Polygon': 'Polygon Network',
+        'BSC': 'Binance Smart Chain',
+        'Tron': 'Tron Network'
+      };
+      return networkNames[network] || `${network} Network`;
+    }
+
+    // Fallback based on crypto type
+    const defaultNetworks = {
       'BTC': 'Bitcoin Network',
       'ETH': 'Ethereum Network',
-      'USDT': 'Multiple Networks',
-      'USDC': 'Multiple Networks', 
-      'MATIC': 'Polygon Network',
-      'PYUSD': 'Polygon Network'
+      'USDT': 'Multiple Networks Available',
+      'USDC': 'Multiple Networks Available',
+      'MATIC': 'Polygon Network'
     };
-    return networks[cryptoType] || 'Blockchain Network';
+    return defaultNetworks[cryptoType] || 'Blockchain Network';
   };
 
   useEffect(() => {
@@ -36,10 +52,63 @@ const FinalPayment = () => {
     }
 
     fetchPaymentDetails();
-    const statusInterval = setInterval(checkPaymentStatus, 10000); // Check every 10 seconds
+    
+    // Only start polling if payment is pending and page is visible
+    if (document.visibilityState === 'visible') {
+      startStatusPolling();
+    }
 
-    return () => clearInterval(statusInterval);
+    // Handle page visibility changes
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        if (paymentStatus === 'pending') {
+          startStatusPolling();
+        }
+      } else {
+        stopStatusPolling();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      stopStatusPolling();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, [payid]);
+
+  // Stop polling when payment is completed or failed
+  useEffect(() => {
+    if (paymentStatus === 'completed' || paymentStatus === 'failed') {
+      stopStatusPolling();
+    }
+  }, [paymentStatus]);
+
+  const startStatusPolling = () => {
+    if (statusIntervalRef.current) return; // Already polling
+    
+    console.log('🔄 Starting status polling for payment:', payid);
+    setIsPolling(true);
+    
+    // Check immediately
+    checkPaymentStatus();
+    
+    // Then check every 30 seconds (reduced from 10 seconds)
+    statusIntervalRef.current = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        checkPaymentStatus();
+      }
+    }, 30000);
+  };
+
+  const stopStatusPolling = () => {
+    if (statusIntervalRef.current) {
+      console.log('⏹️ Stopping status polling for payment:', payid);
+      clearInterval(statusIntervalRef.current);
+      statusIntervalRef.current = null;
+      setIsPolling(false);
+    }
+  };
 
   const fetchPaymentDetails = async () => {
     try {
@@ -51,6 +120,18 @@ const FinalPayment = () => {
       if (data.success && data.payment) {
         setPaymentData(data.payment);
         setPaymentStatus(data.payment.status || 'pending');
+        
+        // Check if associated order is deactivated
+        if (data.payment.orderIsActive === false) {
+          setError('This product/service has been deactivated by the merchant and is no longer available for payment.');
+          return;
+        }
+
+        // Check if payment processing is paused
+        if (data.payment.apiStatus && !data.payment.apiStatus.isActive) {
+          setError('Payment processing is currently paused by the merchant. Please contact support.');
+          return;
+        }
         
         // Generate QR code only if we have a valid wallet address
         const walletAddress = data.payment.walletAddress || data.payment.address;
@@ -66,12 +147,27 @@ const FinalPayment = () => {
           setError('Merchant has not configured a wallet address for this cryptocurrency. Please contact the merchant.');
         }
       } else {
-        setError(data.message || 'Payment not found');
+        // Handle specific error codes
+        if (data.errorCode === 'ORDER_DEACTIVATED') {
+          setError('This product/service has been deactivated and is no longer available for payment.');
+        } else if (data.errorCode === 'API_PAUSED') {
+          setError('Payment processing is currently paused by the merchant. Please contact support.');
+        } else if (data.errorCode === 'ORDER_CANCELLED') {
+          setError('This order has been cancelled and cannot be paid.');
+        } else {
+          setError(data.message || 'Payment not found');
+        }
       }
     } catch (err) {
       console.error('❌ Failed to fetch payment details:', err);
       
-      if (err.message.includes('404')) {
+      if (err.message.includes('PAYMENT_PAUSED')) {
+        setError('Payment processing is currently paused by the merchant. Please contact support.');
+      } else if (err.message.includes('ORDER_DEACTIVATED')) {
+        setError('This product/service has been deactivated and is no longer available for payment.');
+      } else if (err.message.includes('ORDER_CANCELLED')) {
+        setError('This order has been cancelled and cannot be paid.');
+      } else if (err.message.includes('404')) {
         setError('Payment not found. Please check your payment ID.');
       } else {
         setError('Failed to fetch payment details. Please try again.');
@@ -86,13 +182,18 @@ const FinalPayment = () => {
       // Create a proper QR code URL for cryptocurrency payments
       const amount = payment?.amountCrypto || payment?.amount;
       const cryptoType = payment?.cryptoType || payment?.type;
+      const network = payment?.network;
       
       let qrData = address;
       
-      // Format QR data based on cryptocurrency type
+      // Format QR data based on cryptocurrency type and network
       if (cryptoType === 'BTC' && amount) {
         qrData = `bitcoin:${address}?amount=${amount}`;
       } else if (cryptoType === 'ETH' && amount) {
+        qrData = `ethereum:${address}?value=${amount}`;
+      } else if ((cryptoType === 'USDT' || cryptoType === 'USDC') && network === 'Ethereum' && amount) {
+        qrData = `ethereum:${address}?value=${amount}`;
+      } else if ((cryptoType === 'USDT' || cryptoType === 'USDC') && network === 'Polygon' && amount) {
         qrData = `ethereum:${address}?value=${amount}`;
       }
       
@@ -100,24 +201,35 @@ const FinalPayment = () => {
       const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(qrData)}&size=256x256&margin=10`;
       setQrCodeUrl(qrUrl);
       
-      console.log('✅ QR code generated for:', cryptoType, 'address');
+      console.log('✅ QR code generated for:', cryptoType, 'on', network || 'default network');
     } catch (err) {
       console.error('❌ Failed to generate QR code:', err);
     }
   };
 
   const checkPaymentStatus = async () => {
+    // Don't check if payment is already completed or failed
+    if (paymentStatus === 'completed' || paymentStatus === 'failed') {
+      stopStatusPolling();
+      return;
+    }
+
     try {
+      console.log('🔍 Checking payment status for:', payid);
       const data = await paymentsAPI.checkStatus(payid);
-      if (data.success) {
+      
+      if (data.success && data.status !== paymentStatus) {
+        console.log('📊 Payment status changed:', paymentStatus, '->', data.status);
         setPaymentStatus(data.status);
-        if (data.status === 'completed') {
-          // Payment completed, could redirect or show success message
+        
+        // Stop polling if payment is completed or failed
+        if (data.status === 'completed' || data.status === 'failed') {
+          stopStatusPolling();
         }
       }
     } catch (err) {
-      // Silent fail for status checks
-      console.log('Status check failed:', err);
+      console.warn('⚠️ Status check failed (will retry):', err.message);
+      // Don't show error for status checks, just log it
     }
   };
 
@@ -132,7 +244,9 @@ const FinalPayment = () => {
   };
 
   const refreshPage = () => {
-    window.location.reload();
+    // Instead of full page reload, just refresh the payment data
+    setLoading(true);
+    fetchPaymentDetails();
   };
 
   if (loading) {
@@ -175,7 +289,7 @@ const FinalPayment = () => {
         </div>
       </div>
 
-      {/* Amount Display */}
+      {/* Amount Display with Network Info */}
       <div className="bg-blue-50 py-6">
         <div className="max-w-4xl mx-auto text-center">
           <div className="inline-flex items-center space-x-2 bg-blue-600 text-white px-6 py-3 rounded-lg">
@@ -190,6 +304,11 @@ const FinalPayment = () => {
           {paymentData.amountUSD && (
             <div className="mt-2 text-gray-600">
               ≈ ${paymentData.amountUSD} USD
+            </div>
+          )}
+          {(paymentData.network) && (
+            <div className="mt-1 text-blue-700 text-sm">
+              Network: {getNetworkName(paymentData.cryptoType || paymentData.type, paymentData.network)}
             </div>
           )}
         </div>
@@ -214,18 +333,23 @@ const FinalPayment = () => {
             </div>
           )}
 
-          {/* Customer Info */}
+          {/* Enhanced Customer Info with Network */}
           {(paymentData.customerName || paymentData.customerEmail) && (
             <div className="mb-6 bg-gray-50 rounded-lg p-4">
-              <p className="text-gray-600 mb-2">Customer Details:</p>
+              <p className="text-gray-600 mb-2">Payment Details:</p>
               {paymentData.customerName && (
                 <p className="text-gray-900">
-                  <strong>Name:</strong> {paymentData.customerName}
+                  <strong>Customer:</strong> {paymentData.customerName}
                 </p>
               )}
               {paymentData.customerEmail && (
                 <p className="text-gray-900">
                   <strong>Email:</strong> {paymentData.customerEmail}
+                </p>
+              )}
+              {paymentData.network && (
+                <p className="text-gray-900">
+                  <strong>Network:</strong> {getNetworkName(paymentData.cryptoType || paymentData.type, paymentData.network)}
                 </p>
               )}
             </div>
@@ -245,15 +369,19 @@ const FinalPayment = () => {
                 <div className="flex items-center justify-center space-x-2 text-yellow-700 mb-2">
                   <Icon name="Clock" size={20} />
                   <span className="font-medium">Waiting for Payment</span>
+                  {isPolling && (
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-yellow-600 ml-2"></div>
+                  )}
                 </div>
                 <p className="text-sm text-gray-600">
-                  Do not leave this page. Refresh after making the payment.
+                  Payment status is being monitored automatically.
                 </p>
                 <button
                   onClick={refreshPage}
-                  className="mt-2 text-blue-600 hover:text-blue-700 text-sm underline"
+                  disabled={loading}
+                  className="mt-2 text-blue-600 hover:text-blue-700 text-sm underline disabled:opacity-50"
                 >
-                  Refresh Page
+                  {loading ? 'Refreshing...' : 'Refresh Now'}
                 </button>
               </div>
             )}
@@ -271,7 +399,7 @@ const FinalPayment = () => {
             </div>
           )}
 
-          {/* Address Section - Only show if valid address exists */}
+          {/* Enhanced Address Section with Network Info */}
           {(paymentData.walletAddress || paymentData.address) && 
            paymentData.walletAddress !== paymentData.businessEmail && (
             <div className="mb-6">
@@ -291,9 +419,14 @@ const FinalPayment = () => {
                   <Icon name="Copy" size={16} />
                 </button>
               </div>
-              <p className="text-xs text-gray-500 mt-1">
-                Network: {getNetworkName(paymentData.cryptoType || paymentData.type)}
-              </p>
+              <div className="mt-2 text-xs text-gray-500 space-y-1">
+                <p>Network: {getNetworkName(paymentData.cryptoType || paymentData.type, paymentData.network)}</p>
+                {paymentData.network && paymentData.network !== 'Bitcoin' && (
+                  <p className="text-yellow-600">
+                    ⚠️ Make sure to send on the correct network to avoid loss of funds
+                  </p>
+                )}
+              </div>
             </div>
           )}
 
@@ -315,19 +448,81 @@ const FinalPayment = () => {
             </div>
           )}
 
-          {/* Payment Instructions - Only show for valid addresses */}
+          {/* Enhanced Payment Instructions with Network Warnings */}
           <div className="text-sm text-gray-600 space-y-2">
             {(paymentData.walletAddress && paymentData.walletAddress !== paymentData.businessEmail) ? (
               <>
                 <p className="font-medium">Payment Instructions:</p>
                 <p>1. Send exactly <strong>{paymentData.amountCrypto || paymentData.amount} {paymentData.cryptoType || paymentData.type}</strong> to the address above</p>
-                <p>2. Wait for network confirmation (this may take a few minutes)</p>
-                <p>3. This page will automatically update when payment is confirmed</p>
-                <p>4. <strong>Do not</strong> send from an exchange - use a personal wallet</p>
-                {(paymentData.cryptoType === 'BTC' || paymentData.type === 'BTC') && (
-                  <p className="text-xs text-yellow-600 mt-2">
-                    ⚠️ Bitcoin transactions may take 10-60 minutes to confirm depending on network congestion
-                  </p>
+                <p>2. <strong>Important:</strong> Send on the <strong>{paymentData.network || 'correct'}</strong> network only</p>
+                <p>3. Wait for network confirmation (this may take a few minutes)</p>
+                <p>4. This page will automatically update when payment is confirmed</p>
+                <p>5. <strong>Do not</strong> send from an exchange - use a personal wallet</p>
+                
+                {/* Network-specific warnings */}
+                {paymentData.network === 'Bitcoin' && (
+                  <div className="bg-yellow-50 border border-yellow-200 rounded p-3 mt-3">
+                    <p className="text-xs text-yellow-700">
+                      <strong>Bitcoin Network:</strong> Transactions may take 10-60 minutes to confirm depending on network congestion
+                    </p>
+                  </div>
+                )}
+                
+                {(paymentData.network === 'Ethereum') && (
+                  <div className="bg-blue-50 border border-blue-200 rounded p-3 mt-3">
+                    <p className="text-xs text-blue-700">
+                      <strong>Ethereum Network:</strong> Higher gas fees may apply. Transactions typically confirm in 1-5 minutes
+                    </p>
+                  </div>
+                )}
+                
+                {(paymentData.network === 'Polygon') && (
+                  <div className="bg-purple-50 border border-purple-200 rounded p-3 mt-3">
+                    <p className="text-xs text-purple-700">
+                      <strong>Polygon Network:</strong> Low fees and fast confirmation (typically under 1 minute)
+                    </p>
+                  </div>
+                )}
+                
+                {(paymentData.network === 'BSC') && (
+                  <div className="bg-yellow-50 border border-yellow-200 rounded p-3 mt-3">
+                    <p className="text-xs text-yellow-700">
+                      <strong>BSC Network:</strong> Fast and low-cost transactions (typically under 1 minute)
+                    </p>
+                  </div>
+                )}
+                
+                {(paymentData.network === 'Solana') && (
+                  <div className="bg-purple-50 border border-purple-200 rounded p-3 mt-3">
+                    <p className="text-xs text-purple-700">
+                      <strong>Solana Network:</strong> Fast and low-cost transactions (typically under 1 minute)
+                    </p>
+                  </div>
+                )}
+                
+                {(paymentData.cryptoType === 'USDT' || paymentData.cryptoType === 'USDC') && (
+                  <div className="bg-red-50 border border-red-200 rounded p-3 mt-3">
+                    <p className="text-xs text-red-700">
+                      <strong>⚠️ CRITICAL:</strong> Sending on the wrong network will result in permanent loss of funds. 
+                      Double-check you're using the {paymentData.network} network.
+                    </p>
+                  </div>
+                )}
+                
+                {(paymentData.cryptoType === 'MATIC') && (
+                  <div className="bg-purple-50 border border-purple-200 rounded p-3 mt-3">
+                    <p className="text-xs text-purple-700">
+                      <strong>MATIC Network:</strong> Native Polygon token with fast confirmation (typically under 1 minute)
+                    </p>
+                  </div>
+                )}
+                
+                {(paymentData.cryptoType === 'SOL') && (
+                  <div className="bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded p-3 mt-3">
+                    <p className="text-xs text-purple-700">
+                      <strong>Solana Network:</strong> High-speed blockchain with sub-second finality
+                    </p>
+                  </div>
                 )}
               </>
             ) : (
@@ -343,16 +538,16 @@ const FinalPayment = () => {
           </div>
         </div>
 
-        {/* Support Link */}
+        {/* Enhanced Support Link with Network Info */}
         <div className="text-center mt-6">
           <a
             href="/contact"
             className="text-blue-600 hover:text-blue-700 text-sm underline"
           >
-            Any issues? Contact Support
+            Issues with {paymentData.network} network? Contact Support
           </a>
           <p className="text-xs text-gray-500 mt-1">
-            Please save your Payment ID: {payid}
+            Payment ID: {payid} | Network: {paymentData.network || 'N/A'}
           </p>
         </div>
       </div>

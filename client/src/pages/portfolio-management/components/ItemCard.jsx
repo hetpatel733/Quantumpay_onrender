@@ -10,7 +10,7 @@ const ItemCard = ({ item, onEdit, onDelete, onToggleStatus }) => {
   const [apiKey, setApiKey] = useState(null);
   const [loadingApiKey, setLoadingApiKey] = useState(true);
   
-  const baseUrl = import.meta.env.VITE_CLIENT_URL || 'http://localhost:9000';
+  const baseUrl = import.meta.env.VITE_CLIENT_URL || window.location.origin;
 
   // Fetch the user's first active API key to generate default payment link
   useEffect(() => {
@@ -52,6 +52,11 @@ const ItemCard = ({ item, onEdit, onDelete, onToggleStatus }) => {
     null;
 
   const copyPaymentLink = () => {
+    if (!item.status || item.status === 'inactive') {
+      alert('This product is deactivated. Please activate it before generating payment links.');
+      return;
+    }
+    
     if (paymentLink) {
       navigator.clipboard.writeText(paymentLink);
       setIsLinkCopied(true);
@@ -73,11 +78,18 @@ const ItemCard = ({ item, onEdit, onDelete, onToggleStatus }) => {
   const getCryptoIcon = (type) => {
     switch (type) {
       case 'Bitcoin':
+      case 'BTC':
         return 'Bitcoin';
       case 'Ethereum':
+      case 'ETH':
         return 'Zap';
-      case 'USDT': case'USDC':
+      case 'USDT': 
+      case 'USDC':
         return 'DollarSign';
+      case 'MATIC':
+        return 'Triangle';
+      case 'SOL':
+        return 'Sun';
       default:
         return 'Coins';
     }
@@ -185,9 +197,9 @@ const ItemCard = ({ item, onEdit, onDelete, onToggleStatus }) => {
             <span className="text-sm font-medium text-text-secondary">Payment Link:</span>
             <button
               onClick={copyPaymentLink}
-              disabled={!paymentLink || loadingApiKey}
+              disabled={!paymentLink || loadingApiKey || item.status === 'inactive'}
               className={`flex items-center space-x-1 text-xs transition-smooth ${
-                paymentLink && !loadingApiKey
+                paymentLink && !loadingApiKey && item.status === 'active'
                   ? 'text-primary hover:text-primary-700' 
                   : 'text-text-secondary cursor-not-allowed'
               }`}
@@ -198,12 +210,18 @@ const ItemCard = ({ item, onEdit, onDelete, onToggleStatus }) => {
           </div>
           <div className="text-xs font-mono text-text-primary bg-surface border border-border rounded px-2 py-1 truncate">
             {loadingApiKey ? 'Loading API key...' : 
+             item.status === 'inactive' ? 'Product deactivated - no payment link' :
              paymentLink ? paymentLink : 
              'No API key available'}
           </div>
-          {!loadingApiKey && !apiKey && (
+          {!loadingApiKey && !apiKey && item.status === 'active' && (
             <p className="text-xs text-warning mt-1">
               ⚠️ Create an API key to generate payment links
+            </p>
+          )}
+          {item.status === 'inactive' && (
+            <p className="text-xs text-error mt-1">
+              ⚠️ Activate this product to enable payment processing
             </p>
           )}
         </div>

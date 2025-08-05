@@ -18,11 +18,5 @@ export default defineConfig({
   server: {
     port: 9000,
     open: true,
-    proxy: {
-      '/api': {
-        target: '',
-        changeOrigin: true,
-      }
-    }
   }
 });

@@ -30,6 +30,7 @@
   transition: all 0.2s ease;
   text-align: center;
   background-color: #ffffff;
+  min-height: 140px; /* Ensure consistent height for network info */
 }
 
 .crypto-card:hover {
@@ -48,6 +49,20 @@
   margin: 0 auto 0.5rem;
   border-radius: 50%;
   object-fit: cover;
+}
+
+/* Add specific styling for network labels */
+.crypto-card .text-xs.text-gray-400 {
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 0.25rem;
+  color: #6b7280;
+  font-size: 0.6875rem;
+}
+
+.crypto-card.selected .text-xs.text-gray-400 {
+  color: #1e40af;
 }
 
 @media (max-width: 768px) {

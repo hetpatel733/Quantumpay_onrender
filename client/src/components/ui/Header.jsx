@@ -118,7 +118,7 @@ const Header = ({ userData }) => {
       icon: "HelpCircle",
       action: () => {
         // Open help documentation
-        console.log("Opening help documentation");
+        window.location.href = "/contact";
       },
     },
     {

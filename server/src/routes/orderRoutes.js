@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { Order } = require('../models/Order');
 const { BusinessAPI } = require('../models/BusinessAPI');
-const { authenticateUser } = require('../services/auth');
+const { authenticateUser, validateApiKey } = require('../services/auth');
 const crypto = require('crypto');
 
 // Generate a unique order ID
@@ -10,73 +10,77 @@ const generateOrderId = () => {
   return 'ORD-' + Date.now() + '-' + crypto.randomBytes(4).toString('hex');
 };
 
-// Middleware to validate API key for order operations
-const validateApiKey = async (req, res, next) => {
+// Public product creation endpoint with API key validation
+router.post('/public', validateApiKey, async (req, res) => {
   try {
-    const apiKey = req.headers['x-api-key'] || req.query.api;
-    
-    if (!apiKey) {
-      return res.status(401).json({
+    const { productName, amountUSD, customerEmail, description, metadata } = req.body;
+
+    if (!productName || !amountUSD) {
+      return res.status(400).json({
         success: false,
-        message: 'API key required'
+        message: 'Product name and amount are required'
       });
     }
 
-    const apiRecord = await BusinessAPI.findOne({ key: apiKey });
-    
-    if (!apiRecord) {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid API key'
-      });
-    }
-
-    if (!apiRecord.isActive) {
+    // Check if API key is active
+    if (!req.apiKey.isActive) {
       return res.status(403).json({
         success: false,
-        message: 'API key is disabled'
+        message: "Payment processing is currently paused. Products cannot be created at this time.",
+        errorCode: "API_PAUSED"
       });
     }
 
-    // Update usage stats
-    await apiRecord.incrementUsage();
-    
-    req.apiKey = apiRecord;
-    next();
-  } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: 'API validation error'
+    const orderId = generateOrderId();
+
+    const order = new Order({
+      orderId,
+      businessEmail: req.apiKey.businessEmail,
+      productName,
+      amountUSD,
+      customerEmail: customerEmail || '',
+      description: description || '',
+      isActive: true, // Only isActive field, no status
+      metadata: metadata || {}
     });
+
+    await order.save();
+
+    res.status(201).json({
+      success: true,
+      order,
+      message: 'Product created successfully'
+    });
+  } catch (error) {
+    console.error('Error creating public product:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
   }
-};
+});
 
 // Get all orders for the authenticated business
 router.get('/', authenticateUser, async (req, res) => {
   try {
-    const { status, limit = 20, skip = 0, sortBy = 'createdAt', sortOrder = 'desc' } = req.query;
+    const { isActive, limit = 20, skip = 0, sortBy = 'createdAt', sortOrder = 'desc' } = req.query;
     
-    const query = { businessEmail: req.user.email };
-    if (status) query.status = status;
+    // Build filter object
+    const filter = { businessEmail: req.user.email };
+    if (isActive !== undefined) {
+      filter.isActive = isActive === 'true';
+    }
     
+    // Build sort object
     const sort = {};
-    sort[sortBy] = sortOrder === 'asc' ? 1 : -1;
+    sort[sortBy] = sortOrder === 'desc' ? -1 : 1;
     
-    const orders = await Order.find(query)
+    const orders = await Order.find(filter)
       .sort(sort)
-      .skip(Number(skip))
-      .limit(Number(limit));
+      .limit(parseInt(limit))
+      .skip(parseInt(skip));
     
-    const total = await Order.countDocuments(query);
-    
-    res.status(200).json({
-      success: true,
+    res.status(200).json({ 
+      success: true, 
       orders,
-      pagination: {
-        total,
-        skip: Number(skip),
-        limit: Number(limit)
-      }
+      count: orders.length
     });
   } catch (error) {
     console.error('Error fetching orders:', error);
@@ -88,16 +92,16 @@ router.get('/', authenticateUser, async (req, res) => {
 router.get('/:id', authenticateUser, async (req, res) => {
   try {
     const order = await Order.findById(req.params.id);
-    
+
     if (!order) {
       return res.status(404).json({ success: false, message: 'Order not found' });
     }
-    
+
     // Verify the user owns this order
     if (order.businessEmail !== req.user.email) {
       return res.status(403).json({ success: false, message: 'Unauthorized' });
     }
-    
+
     res.status(200).json({ success: true, order });
   } catch (error) {
     console.error('Error fetching order:', error);
@@ -105,241 +109,223 @@ router.get('/:id', authenticateUser, async (req, res) => {
   }
 });
 
-// Create a new order
+// Create new order
 router.post('/', authenticateUser, async (req, res) => {
   try {
-    const { productName, amountUSD, customerEmail, description, metadata } = req.body;
-    
-    if (!productName || !amountUSD) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Product name and amount are required' 
+    const { productName, amountUSD, description, category, isActive } = req.body;
+
+    console.log('🔄 Creating new order for:', req.user.email);
+    console.log('📦 Order data:', { productName, amountUSD, description, category, isActive });
+
+    // Validate required fields
+    if (!productName || !productName.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Product name is required'
       });
     }
-    
+
+    if (!amountUSD || amountUSD <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Valid amount in USD is required'
+      });
+    }
+
+    // Generate unique order ID
     const orderId = generateOrderId();
-    
-    const order = new Order({
+
+    // Create order object (no crypto-specific fields)
+    const orderData = {
       orderId,
       businessEmail: req.user.email,
-      productName,
-      amountUSD,
-      customerEmail: customerEmail || '',
-      description: description || '',
-      status: 'pending',
-      isActive: true,
-      metadata: metadata || {}
-    });
-    
+      productName: productName.trim(),
+      amountUSD: parseFloat(amountUSD),
+      description: description ? description.trim() : '',
+      category: category ? category.trim() : '',
+      isActive: isActive !== undefined ? isActive : true
+    };
+
+    const order = new Order(orderData);
     await order.save();
-    
-    res.status(201).json({ 
-      success: true, 
+
+    console.log('✅ Order created successfully:', order.orderId);
+
+    res.status(201).json({
+      success: true,
       order,
       message: 'Order created successfully'
     });
   } catch (error) {
-    console.error('Error creating order:', error);
-    res.status(500).json({ success: false, message: 'Server error' });
-  }
-});
-
-// Create order with API key (for external integrations)
-router.post('/api', async (req, res) => {
-  try {
-    const { apiKey, productName, amountUSD, customerEmail, description, metadata } = req.body;
-    
-    if (!apiKey || !productName || !amountUSD) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'API key, product name, and amount are required' 
-      });
-    }
-    
-    // Verify API key
-    const apiKeyDoc = await BusinessAPI.findOne({ apiKey, isActive: true });
-    
-    if (!apiKeyDoc) {
-      return res.status(401).json({ success: false, message: 'Invalid or inactive API key' });
-    }
-    
-    const orderId = generateOrderId();
-    
-    const order = new Order({
-      orderId,
-      businessEmail: apiKeyDoc.businessEmail,
-      productName,
-      amountUSD,
-      customerEmail: customerEmail || '',
-      description: description || '',
-      status: 'pending',
-      isActive: true,
-      metadata: metadata || {}
+    console.error('❌ Error creating order:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error: ' + error.message
     });
-    
-    await order.save();
-    
-    // Update API key usage stats
-    apiKeyDoc.lastUsed = new Date();
-    apiKeyDoc.usageCount += 1;
-    await apiKeyDoc.save();
-    
-    res.status(201).json({ 
-      success: true, 
-      order: {
-        orderId: order.orderId,
-        amountUSD: order.amountUSD,
-        status: order.status,
-        createdAt: order.createdAt
-      },
-      message: 'Order created successfully'
-    });
-  } catch (error) {
-    console.error('Error creating order with API key:', error);
-    res.status(500).json({ success: false, message: 'Server error' });
   }
 });
 
 // Update an order
-router.put('/:id', authenticateUser, async (req, res) => {
+router.put('/:orderId', authenticateUser, async (req, res) => {
   try {
-    const { productName, amountUSD, customerEmail, description, status, isActive, metadata } = req.body;
+    const { orderId } = req.params;
+    const { productName, description, amountUSD, isActive } = req.body;
     
-    const order = await Order.findById(req.params.id);
+    console.log('🔄 Updating order:', orderId, 'for user:', req.user.email);
+    
+    // Find the order and ensure it belongs to the authenticated user
+    const order = await Order.findOne({
+      _id: orderId,
+      businessEmail: req.user.email
+    });
     
     if (!order) {
-      return res.status(404).json({ success: false, message: 'Order not found' });
+      console.log('❌ Order not found or access denied:', orderId);
+      return res.status(404).json({
+        success: false,
+        message: 'Order not found or access denied'
+      });
     }
     
-    // Verify the user owns this order
-    if (order.businessEmail !== req.user.email) {
-      return res.status(403).json({ success: false, message: 'Unauthorized' });
-    }
-    
-    // Update fields
-    if (productName) order.productName = productName;
-    if (amountUSD) order.amountUSD = amountUSD;
-    if (customerEmail) order.customerEmail = customerEmail;
-    if (description) order.description = description;
-    if (status) order.status = status;
+    // Update fields if provided
+    if (productName !== undefined) order.productName = productName;
+    if (description !== undefined) order.description = description;
+    if (amountUSD !== undefined) order.amountUSD = amountUSD;
     if (isActive !== undefined) order.isActive = isActive;
-    if (metadata) order.metadata = { ...order.metadata, ...metadata };
     
     await order.save();
     
-    res.status(200).json({ 
-      success: true, 
+    console.log('✅ Order updated successfully:', order.orderId);
+    
+    res.status(200).json({
+      success: true,
       order,
       message: 'Order updated successfully'
     });
   } catch (error) {
-    console.error('Error updating order:', error);
-    res.status(500).json({ success: false, message: 'Server error' });
+    console.error('❌ Error updating order:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Server error: ' + error.message 
+    });
   }
 });
 
-// Cancel an order
-router.post('/:id/cancel', authenticateUser, async (req, res) => {
+// Deactivate a product
+router.post('/:id/deactivate', authenticateUser, async (req, res) => {
   try {
     const order = await Order.findById(req.params.id);
-    
+
     if (!order) {
-      return res.status(404).json({ success: false, message: 'Order not found' });
+      return res.status(404).json({ success: false, message: 'Product not found' });
     }
-    
-    // Verify the user owns this order
+
+    // Verify the user owns this product
     if (order.businessEmail !== req.user.email) {
       return res.status(403).json({ success: false, message: 'Unauthorized' });
     }
-    
-    // Only pending orders can be cancelled
-    if (order.status !== 'pending') {
-      return res.status(400).json({ 
-        success: false, 
-        message: `Order cannot be cancelled in ${order.status} status` 
-      });
-    }
-    
-    order.status = 'cancelled';
+
+    // Deactivate the product
     order.isActive = false;
-    
     await order.save();
-    
-    res.status(200).json({ 
-      success: true, 
+
+    res.status(200).json({
+      success: true,
       order,
-      message: 'Order cancelled successfully'
+      message: 'Product deactivated successfully'
     });
   } catch (error) {
-    console.error('Error cancelling order:', error);
+    console.error('Error deactivating product:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });
 
-// Delete an order (soft delete by setting isActive to false)
-router.delete('/:id', authenticateUser, async (req, res) => {
+// Delete an order
+router.delete('/:orderId', authenticateUser, async (req, res) => {
   try {
-    const order = await Order.findById(req.params.id);
+    const { orderId } = req.params;
+    
+    console.log('🗑️ Deleting order:', orderId, 'for user:', req.user.email);
+    
+    // Find and delete the order, ensuring it belongs to the authenticated user
+    const order = await Order.findOneAndDelete({
+      _id: orderId,
+      businessEmail: req.user.email
+    });
     
     if (!order) {
-      return res.status(404).json({ success: false, message: 'Order not found' });
-    }
-    
-    // Verify the user owns this order
-    if (order.businessEmail !== req.user.email) {
-      return res.status(403).json({ success: false, message: 'Unauthorized' });
-    }
-    
-    order.isActive = false;
-    await order.save();
-    
-    res.status(200).json({ 
-      success: true, 
-      message: 'Order deleted successfully' 
-    });
-  } catch (error) {
-    console.error('Error deleting order:', error);
-    res.status(500).json({ success: false, message: 'Server error' });
-  }
-});
-
-// Apply API validation to public order creation endpoint
-router.post('/public', validateApiKey, async (req, res) => {
-  try {
-    const { productName, amountUSD, customerEmail, description, metadata } = req.body;
-    
-    if (!productName || !amountUSD) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Product name and amount are required' 
+      console.log('❌ Order not found or access denied:', orderId);
+      return res.status(404).json({
+        success: false,
+        message: 'Order not found or access denied'
       });
     }
     
-    const orderId = generateOrderId();
+    console.log('✅ Order deleted successfully:', order.orderId);
     
-    const order = new Order({
+    res.status(200).json({
+      success: true,
+      message: 'Order deleted successfully'
+    });
+  } catch (error) {
+    console.error('❌ Error deleting order:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Server error: ' + error.message 
+    });
+  }
+});
+
+// Toggle product active status - Simplified
+router.put('/:orderId/toggle', authenticateUser, async (req, res) => {
+  try {
+    const { orderId } = req.params;
+
+    console.log('🔄 Toggling product status for orderId:', orderId, 'user:', req.user.email);
+
+    const order = await Order.findOne({
       orderId,
-      businessEmail: req.apiKey.businessEmail,
-      productName,
-      amountUSD,
-      customerEmail: customerEmail || '',
-      description: description || '',
-      status: 'pending',
-      isActive: true,
-      metadata: metadata || {}
+      businessEmail: req.user.email
     });
-    
+
+    if (!order) {
+      console.log('❌ Product not found:', orderId);
+      return res.status(404).json({
+        success: false,
+        message: 'Product not found'
+      });
+    }
+
+    console.log('📋 Current product isActive:', order.isActive);
+
+    // Toggle the active status
+    order.isActive = !order.isActive;
     await order.save();
-    
-    res.status(201).json({ 
-      success: true, 
-      order,
-      message: 'Order created successfully'
+
+    console.log('✅ Product status toggled to:', order.isActive);
+
+    res.status(200).json({
+      success: true,
+      order: {
+        _id: order._id,
+        orderId: order.orderId,
+        productName: order.productName,
+        amountUSD: order.amountUSD,
+        isActive: order.isActive,
+        createdAt: order.createdAt,
+        updatedAt: order.updatedAt
+      },
+      message: `Product ${order.isActive ? 'activated' : 'deactivated'} successfully`
     });
   } catch (error) {
-    console.error('Error creating public order:', error);
-    res.status(500).json({ success: false, message: 'Server error' });
+    console.error('❌ Error toggling product:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error: ' + error.message,
+      error: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
   }
 });
+
 
 module.exports = router;

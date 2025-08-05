@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { PaymentConfiguration } = require('../models/PaymentConfiguration');
 const { authenticateUser } = require('../services/auth');
+const { BusinessAPI } = require('../models/BusinessAPI');
 
 // Get payment configuration for a business
 router.get('/', authenticateUser, async (req, res) => {
@@ -18,7 +19,6 @@ router.get('/', authenticateUser, async (req, res) => {
     if (!config) {
       console.log('🏗️ No payment configuration found, creating default for:', req.user.email);
 
-      // Check if user is business type
       const { User } = require('../models/User');
       const user = await User.findOne({ email: req.user.email });
 
@@ -28,45 +28,217 @@ router.get('/', authenticateUser, async (req, res) => {
 
       if (user.type === 'business') {
         const defaultCryptoConfigs = [
+          // USDT configurations
           {
             coinType: 'USDT',
             enabled: false,
             address: '',
-            label: 'USDT Configuration',
+            label: 'USDT on Polygon',
             network: 'Polygon',
-            isDefault: false
+            isDefault: false,
+            networkConfig: {
+              contractAddress: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
+              decimals: 6,
+              chainId: 137,
+              explorerUrl: 'https://polygonscan.com'
+            }
           },
+          {
+            coinType: 'USDT',
+            enabled: false,
+            address: '',
+            label: 'USDT on Ethereum',
+            network: 'Ethereum',
+            isDefault: false,
+            networkConfig: {
+              contractAddress: '0xdAC17F958D2ee523a2206206994597C13D831ec7',
+              decimals: 6,
+              chainId: 1,
+              explorerUrl: 'https://etherscan.io'
+            }
+          },
+          {
+            coinType: 'USDT',
+            enabled: false,
+            address: '',
+            label: 'USDT on BSC',
+            network: 'BSC',
+            isDefault: false,
+            networkConfig: {
+              contractAddress: '0x55d398326f99059fF775485246999027B3197955',
+              decimals: 18,
+              chainId: 56,
+              explorerUrl: 'https://bscscan.com'
+            }
+          },
+          {
+            coinType: 'USDT',
+            enabled: false,
+            address: '',
+            label: 'USDT on Solana',
+            network: 'Solana',
+            isDefault: false,
+            networkConfig: {
+              contractAddress: 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB',
+              decimals: 6,
+              chainId: null,
+              explorerUrl: 'https://solscan.io'
+            }
+          },
+          // USDC configurations
+          {
+            coinType: 'USDC',
+            enabled: false,
+            address: '',
+            label: 'USDC on Polygon',
+            network: 'Polygon',
+            isDefault: false,
+            networkConfig: {
+              contractAddress: '0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174',
+              decimals: 6,
+              chainId: 137,
+              explorerUrl: 'https://polygonscan.com'
+            }
+          },
+          {
+            coinType: 'USDC',
+            enabled: false,
+            address: '',
+            label: 'USDC on Ethereum',
+            network: 'Ethereum',
+            isDefault: false,
+            networkConfig: {
+              contractAddress: '0xA0b86a33E6c8d8e7aB1C3F0F8D0c5E6f8d4eC7b3',
+              decimals: 6,
+              chainId: 1,
+              explorerUrl: 'https://etherscan.io'
+            }
+          },
+          {
+            coinType: 'USDC',
+            enabled: false,
+            address: '',
+            label: 'USDC on BSC',
+            network: 'BSC',
+            isDefault: false,
+            networkConfig: {
+              contractAddress: '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d',
+              decimals: 18,
+              chainId: 56,
+              explorerUrl: 'https://bscscan.com'
+            }
+          },
+          {
+            coinType: 'USDC',
+            enabled: false,
+            address: '',
+            label: 'USDC on Solana',
+            network: 'Solana',
+            isDefault: false,
+            networkConfig: {
+              contractAddress: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+              decimals: 6,
+              chainId: null,
+              explorerUrl: 'https://solscan.io'
+            }
+          },
+          // Bitcoin
           {
             coinType: 'BTC',
             enabled: false,
             address: '',
-            label: 'Bitcoin Configuration',
+            label: 'Bitcoin',
             network: 'Bitcoin',
-            isDefault: false
+            isDefault: false,
+            networkConfig: {
+              contractAddress: '',
+              decimals: 8,
+              chainId: null,
+              explorerUrl: 'https://blockstream.info'
+            }
           },
+          // Ethereum
           {
             coinType: 'ETH',
             enabled: false,
             address: '',
-            label: 'Ethereum Configuration',
+            label: 'Ethereum',
             network: 'Ethereum',
-            isDefault: false
+            isDefault: false,
+            networkConfig: {
+              contractAddress: '',
+              decimals: 18,
+              chainId: 1,
+              explorerUrl: 'https://etherscan.io'
+            }
           },
+          // MATIC (Polygon native token)
           {
             coinType: 'MATIC',
             enabled: false,
             address: '',
-            label: 'Polygon Native Token',
+            label: 'MATIC (Polygon)',
             network: 'Polygon',
-            isDefault: false
+            isDefault: false,
+            networkConfig: {
+              contractAddress: '',
+              decimals: 18,
+              chainId: 137,
+              explorerUrl: 'https://polygonscan.com'
+            }
           },
+          // SOL (Solana native token)
           {
-            coinType: 'PYUSD',
+            coinType: 'SOL',
             enabled: false,
             address: '',
-            label: 'PayPal USD Configuration',
-            network: 'Polygon',
-            isDefault: false
+            label: 'Solana (SOL)',
+            network: 'Solana',
+            isDefault: false,
+            networkConfig: {
+              contractAddress: '',
+              decimals: 9,
+              chainId: null,
+              explorerUrl: 'https://solscan.io'
+            }
+          }
+        ];
+
+        // Default API providers
+        const defaultApiProviders = [
+          {
+            name: 'Etherscan',
+            apiKey: process.env.ETHERSCAN_API_KEY || 'Y1EGDU1IS7CK8YN2MFFAGY75KWXZMP94C2',
+            network: 'EVM',
+            baseUrl: 'https://api.etherscan.io/v2/api',
+            isActive: true,
+            rateLimit: {
+              requestsPerSecond: 5,
+              requestsPerDay: 100000
+            },
+            supportedChains: ['Ethereum', 'Polygon', 'BSC']
+          },
+          {
+            name: 'Blockstream',
+            apiKey: 'not-required',
+            network: 'Bitcoin',
+            baseUrl: 'https://blockstream.info/api',
+            isActive: true,
+            rateLimit: {
+              requestsPerSecond: 10,
+              requestsPerDay: 1000000
+            }
+          },
+          {
+            name: 'Solscan',
+            apiKey: process.env.SOLSCAN_API_KEY || 'YourSolscanAPIKey',
+            network: 'Solana',
+            baseUrl: 'https://api.solscan.io',
+            isActive: true,
+            rateLimit: {
+              requestsPerSecond: 5,
+              requestsPerDay: 100000
+            }
           }
         ];
 
@@ -74,6 +246,7 @@ router.get('/', authenticateUser, async (req, res) => {
           config = new PaymentConfiguration({
             businessEmail: req.user.email,
             cryptoConfigurations: defaultCryptoConfigs,
+            apiProviders: defaultApiProviders,
             conversionSettings: {
               autoConvert: false,
               baseCurrency: 'USD',
@@ -89,19 +262,63 @@ router.get('/', authenticateUser, async (req, res) => {
           });
 
           await config.save();
-          console.log('✅ Created default payment configuration');
+          console.log('✅ Created default payment configuration with all 6 cryptocurrencies (BTC, ETH, USDT, USDC, MATIC, SOL)');
         } catch (insertError) {
           console.error('❌ Error creating default configuration:', insertError);
-          return res.status(500).json({ success: false, message: 'Error creating configuration' });
+          console.error('❌ Detailed error:', insertError.stack);
+          return res.status(500).json({ success: false, message: 'Error creating configuration: ' + insertError.message });
         }
       } else {
-        // For non-business users, return empty configurations
-        console.log('👤 User is not business type, returning empty configurations');
         return res.status(200).json({
           success: true,
           configuration: null,
           message: 'Payment configurations are only available for business accounts'
         });
+      }
+    } else {
+      // Check if existing config is missing MATIC or SOL and add them
+      const existingCoinTypes = config.cryptoConfigurations.map(c => `${c.coinType}_${c.network}`);
+      const missingConfigs = [];
+      
+      if (!existingCoinTypes.includes('MATIC_Polygon')) {
+        missingConfigs.push({
+          coinType: 'MATIC',
+          enabled: false,
+          address: '',
+          label: 'MATIC (Polygon)',
+          network: 'Polygon',
+          isDefault: false,
+          networkConfig: {
+            contractAddress: '',
+            decimals: 18,
+            chainId: 137,
+            explorerUrl: 'https://polygonscan.com'
+          }
+        });
+      }
+      
+      if (!existingCoinTypes.includes('SOL_Solana')) {
+        missingConfigs.push({
+          coinType: 'SOL',
+          enabled: false,
+          address: '',
+          label: 'Solana (SOL)',
+          network: 'Solana',
+          isDefault: false,
+          networkConfig: {
+            contractAddress: '',
+            decimals: 9,
+            chainId: null,
+            explorerUrl: 'https://solscan.io'
+          }
+        });
+      }
+      
+      // Add missing configurations
+      if (missingConfigs.length > 0) {
+        config.cryptoConfigurations.push(...missingConfigs);
+        await config.save();
+        console.log(`✅ Added ${missingConfigs.length} missing crypto configurations (MATIC/SOL)`);
       }
     }
 
@@ -113,129 +330,13 @@ router.get('/', authenticateUser, async (req, res) => {
   }
 });
 
-// Update crypto configuration
-router.put('/crypto/:coinType', authenticateUser, async (req, res) => {
+// Update crypto configuration with network support
+router.put('/crypto/:coinType/:network', authenticateUser, async (req, res) => {
   try {
-    const { coinType } = req.params;
+    const { coinType, network } = req.params;
     const updateData = req.body;
 
-    console.log('🔄 Updating crypto config for:', coinType, 'Data:', updateData);
-
-    let config = await PaymentConfiguration.findOne({
-      businessEmail: req.user.email
-    });
-
-    if (!config) {
-      // Create new configuration if it doesn't exist
-      console.log('🏗️ Creating new payment configuration for:', req.user.email);
-      
-      const defaultCryptoConfigs = [
-        {
-          coinType: 'USDT',
-          enabled: false,
-          address: '',
-          label: 'USDT Configuration',
-          network: 'Polygon',
-          isDefault: false
-        },
-        {
-          coinType: 'BTC',
-          enabled: false,
-          address: '',
-          label: 'Bitcoin Configuration',
-          network: 'Bitcoin',
-          isDefault: false
-        },
-        {
-          coinType: 'ETH',
-          enabled: false,
-          address: '',
-          label: 'Ethereum Configuration',
-          network: 'Ethereum',
-          isDefault: false
-        },
-        {
-          coinType: 'MATIC',
-          enabled: false,
-          address: '',
-          label: 'Polygon Native Token',
-          network: 'Polygon',
-          isDefault: false
-        },
-        {
-          coinType: 'PYUSD',
-          enabled: false,
-          address: '',
-          label: 'PayPal USD Configuration',
-          network: 'Polygon',
-          isDefault: false
-        }
-      ];
-
-      config = new PaymentConfiguration({
-        businessEmail: req.user.email,
-        cryptoConfigurations: defaultCryptoConfigs,
-        conversionSettings: {
-          autoConvert: false,
-          baseCurrency: 'USD',
-          conversionRate: 'real-time',
-          slippageTolerance: 1.0
-        },
-        transactionLimits: {
-          minAmount: 10,
-          maxAmount: 50000,
-          dailyLimit: 100000,
-          monthlyLimit: 1000000
-        }
-      });
-
-      await config.save();
-      console.log('✅ Created new payment configuration');
-    }
-
-    // Find the crypto configuration to update
-    const cryptoConfigIndex = config.cryptoConfigurations.findIndex(c => c.coinType === coinType);
-    
-    if (cryptoConfigIndex !== -1) {
-      // Update existing crypto configuration
-      Object.assign(config.cryptoConfigurations[cryptoConfigIndex], updateData);
-    } else {
-      // Add new crypto configuration if it doesn't exist
-      const newCryptoConfig = {
-        coinType,
-        enabled: updateData.enabled || false,
-        address: updateData.address || '',
-        label: updateData.label || `${coinType} Configuration`,
-        network: updateData.network || 'Polygon',
-        isDefault: updateData.isDefault || false
-      };
-      config.cryptoConfigurations.push(newCryptoConfig);
-    }
-
-    await config.save();
-    console.log('✅ Crypto configuration updated successfully');
-
-    res.status(200).json({
-      success: true,
-      configuration: config,
-      message: `${coinType} configuration updated successfully`
-    });
-  } catch (error) {
-    console.error('❌ Error updating crypto configuration:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Server error: ' + error.message 
-    });
-  }
-});
-
-// Toggle crypto enabled/disabled - remove address validation
-router.put('/crypto/:coinType/toggle', authenticateUser, async (req, res) => {
-  try {
-    const { coinType } = req.params;
-    const { enabled } = req.body;
-
-    console.log('🔄 Toggling crypto:', coinType, 'Enabled:', enabled);
+    console.log('🔄 Updating crypto config for:', coinType, 'on', network, 'Data:', updateData);
 
     let config = await PaymentConfiguration.findOne({
       businessEmail: req.user.email
@@ -248,33 +349,95 @@ router.put('/crypto/:coinType/toggle', authenticateUser, async (req, res) => {
       });
     }
 
-    // Find the crypto configuration to toggle
-    const cryptoConfig = config.cryptoConfigurations.find(c => c.coinType === coinType);
+    // Find the specific crypto configuration
+    const cryptoConfigIndex = config.cryptoConfigurations.findIndex(
+      c => c.coinType === coinType && c.network === network
+    );
+    
+    if (cryptoConfigIndex !== -1) {
+      // Update existing crypto configuration
+      Object.assign(config.cryptoConfigurations[cryptoConfigIndex], updateData);
+    } else {
+      return res.status(404).json({
+        success: false,
+        message: `${coinType} configuration on ${network} not found`
+      });
+    }
+
+    await config.save();
+    console.log('✅ Crypto configuration updated successfully');
+
+    res.status(200).json({
+      success: true,
+      configuration: config,
+      message: `${coinType} on ${network} configuration updated successfully`
+    });
+  } catch (error) {
+    console.error('❌ Error updating crypto configuration:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Server error: ' + error.message 
+    });
+  }
+});
+
+// Toggle crypto enabled/disabled with network support
+router.put('/crypto/:coinType/:network/toggle', authenticateUser, async (req, res) => {
+  try {
+    const { coinType, network } = req.params;
+    const { enabled } = req.body;
+
+    console.log('🔄 Toggling crypto:', coinType, 'on', network, 'Enabled:', enabled);
+
+    if (enabled) {
+      const apiKey = await BusinessAPI.findOne({ businessEmail: req.user.email });
+      if (!apiKey || !apiKey.isActive) {
+        return res.status(403).json({
+          success: false,
+          message: "Cannot enable cryptocurrency payments while API access is paused. Please contact support to reactivate your API access.",
+          errorCode: "API_PAUSED"
+        });
+      }
+    }
+
+    let config = await PaymentConfiguration.findOne({
+      businessEmail: req.user.email
+    });
+
+    if (!config) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Payment configuration not found. Please refresh the page.' 
+      });
+    }
+
+    // Find the specific crypto configuration
+    const cryptoConfig = config.cryptoConfigurations.find(
+      c => c.coinType === coinType && c.network === network
+    );
     
     if (cryptoConfig) {
       cryptoConfig.enabled = enabled;
       
-      // Save without validation - let frontend handle address warnings
       await config.save({ validateBeforeSave: false });
       
       console.log('✅ Crypto toggle successful');
       
-      // Add warning in response if enabled without address
       let warningMessage = '';
       if (enabled && (!cryptoConfig.address || cryptoConfig.address.trim() === '')) {
-        warningMessage = `${coinType} is now enabled but has no wallet address configured. Please add a wallet address to receive payments.`;
+        warningMessage = `${coinType} on ${network} is now enabled but has no wallet address configured. Please add a wallet address to receive payments.`;
       }
       
       res.status(200).json({
         success: true,
         configuration: config,
-        message: `${coinType} ${enabled ? 'enabled' : 'disabled'} successfully`,
+        message: `${coinType} on ${network} ${enabled ? 'enabled' : 'disabled'} successfully`,
         warning: warningMessage
       });
     } else {
       res.status(404).json({
         success: false,
-        message: `${coinType} configuration not found`
+        message: `${coinType} on ${network} configuration not found`
       });
     }
   } catch (error) {
@@ -283,6 +446,39 @@ router.put('/crypto/:coinType/toggle', authenticateUser, async (req, res) => {
       success: false, 
       message: 'Server error: ' + error.message 
     });
+  }
+});
+
+// Add API providers management endpoint
+router.put('/api-providers', authenticateUser, async (req, res) => {
+  try {
+    const { apiProviders } = req.body;
+
+    if (!apiProviders || !Array.isArray(apiProviders)) {
+      return res.status(400).json({
+        success: false,
+        message: 'API providers array is required'
+      });
+    }
+
+    const config = await PaymentConfiguration.findOneAndUpdate(
+      { businessEmail: req.user.email },
+      { $set: { apiProviders } },
+      { new: true }
+    );
+
+    if (!config) {
+      return res.status(404).json({ success: false, message: 'Configuration not found' });
+    }
+
+    res.status(200).json({
+      success: true,
+      configuration: config,
+      message: 'API providers updated successfully'
+    });
+  } catch (error) {
+    console.error('Error updating API providers:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
   }
 });
 
@@ -422,7 +618,7 @@ router.put('/:id', authenticateUser, async (req, res) => {
 });
 
 // Update global conversion settings for all configurations
-router.put('/global/conversion-settings', authenticateUser, async (req, res) => {
+router.put('/conversion-settings', authenticateUser, async (req, res) => {
   try {
     const { conversionSettings } = req.body;
 
@@ -438,10 +634,7 @@ router.put('/global/conversion-settings', authenticateUser, async (req, res) => 
       { businessEmail: req.user.email },
       {
         $set: {
-          'conversionSettings.autoConvert': conversionSettings.autoConvert,
-          'conversionSettings.baseCurrency': conversionSettings.baseCurrency,
-          'conversionSettings.conversionRate': conversionSettings.conversionRate,
-          'conversionSettings.slippageTolerance': conversionSettings.slippageTolerance
+          conversionSettings: conversionSettings
         }
       }
     );
@@ -453,6 +646,42 @@ router.put('/global/conversion-settings', authenticateUser, async (req, res) => 
     });
   } catch (error) {
     console.error('Error updating global conversion settings:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// Update global transaction limits for all configurations
+router.put('/transaction-limits', authenticateUser, async (req, res) => {
+  try {
+    const { transactionLimits } = req.body;
+
+    if (!transactionLimits) {
+      return res.status(400).json({
+        success: false,
+        message: 'Transaction limits are required'
+      });
+    }
+
+    // Update all configurations for this business
+    const updateResult = await PaymentConfiguration.updateMany(
+      { businessEmail: req.user.email },
+      {
+        $set: {
+          'transactionLimits.minAmount': transactionLimits.minAmount,
+          'transactionLimits.maxAmount': transactionLimits.maxAmount,
+          'transactionLimits.dailyLimit': transactionLimits.dailyLimit,
+          'transactionLimits.monthlyLimit': transactionLimits.monthlyLimit
+        }
+      }
+    );
+
+    res.status(200).json({
+      success: true,
+      message: 'Global transaction limits updated successfully',
+      modifiedCount: updateResult.modifiedCount
+    });
+  } catch (error) {
+    console.error('Error updating global transaction limits:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });

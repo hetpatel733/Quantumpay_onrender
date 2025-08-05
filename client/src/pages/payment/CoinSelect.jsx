@@ -11,7 +11,7 @@ const CoinSelect = () => {
     fname: '',
     lname: '',
     email: '',
-    type: ''
+    type: '' // This will now store the unique crypto ID (coinType_network)
   });
   const [orderData, setOrderData] = useState(null);
   const [enabledCryptos, setEnabledCryptos] = useState([]);
@@ -23,7 +23,7 @@ const CoinSelect = () => {
   const api = params.get('api');
   const order_id = params.get('order_id');
 
-  // Crypto display data for images only
+  // Crypto display data for images only - updated structure (remove MATIC and SOL)
   const cryptoDisplayData = {
     'BTC': { 
       image: '/images/Coins/BTC.webp', 
@@ -41,19 +41,9 @@ const CoinSelect = () => {
       name: 'Tether'
     },
     'USDC': { 
-      image: '/images/Coins/USDC.PNG', 
+      image: '/images/Coins/USDC.png', 
       network: 'Various',
       name: 'USD Coin'
-    },
-    'MATIC': { 
-      image: '/images/Coins/MATIC.webp', 
-      network: 'Polygon',
-      name: 'Polygon'
-    },
-    'PYUSD': { 
-      image: '/images/Coins/USDT.webp', 
-      network: 'Polygon',
-      name: 'PayPal USD'
     }
   };
 
@@ -63,7 +53,6 @@ const CoinSelect = () => {
       'Ethereum': 'Ethereum Network', 
       'Polygon': 'Polygon Network',
       'BSC': 'Binance Smart Chain',
-      'TRON': 'TRON Network',
       'Solana': 'Solana Network'
     };
     return networkNames[network] || network;
@@ -115,6 +104,18 @@ const CoinSelect = () => {
       console.log('📦 Validation response:', data);
 
       if (data.success) {
+        // Check order status
+        if (!data.order.isActive) {
+          setError('This product/service has been deactivated and is no longer available for purchase.');
+          return;
+        }
+
+        // Check API status
+        if (data.apiStatus && !data.apiStatus.isActive) {
+          setError('Payment processing is currently paused by the merchant. Please contact support.');
+          return;
+        }
+
         setOrderData(data.order);
         
         // Only set enabled cryptos from backend response
@@ -127,11 +128,30 @@ const CoinSelect = () => {
           setError('No payment methods are currently enabled by the merchant. Please contact support.');
         }
       } else {
-        setError(data.message || 'Invalid payment request');
+        // Handle specific error codes
+        if (data.errorCode === 'ORDER_DEACTIVATED') {
+          setError('This product/service has been deactivated and is no longer available for purchase.');
+        } else if (data.errorCode === 'API_PAUSED') {
+          setError('Payment processing is currently paused by the merchant. Please contact support.');
+        } else if (data.errorCode === 'ORDER_CANCELLED') {
+          setError('This order has been cancelled and cannot be paid.');
+        } else {
+          setError(data.message || 'Invalid payment request');
+        }
       }
     } catch (err) {
       console.error('❌ Validation error:', err);
-      setError('Failed to validate payment request. Please try again.');
+      
+      // Handle specific error types from API
+      if (err.message.includes('PAYMENT_PAUSED')) {
+        setError('Payment processing is currently paused by the merchant. Please contact support.');
+      } else if (err.message.includes('ORDER_DEACTIVATED')) {
+        setError('This product/service has been deactivated and is no longer available for purchase.');
+      } else if (err.message.includes('ORDER_CANCELLED')) {
+        setError('This order has been cancelled and cannot be paid.');
+      } else {
+        setError('Failed to validate payment request. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -145,11 +165,11 @@ const CoinSelect = () => {
     }));
   };
 
-  const handleCryptoSelect = (cryptoType) => {
-    console.log('💰 Crypto selected:', cryptoType);
+  const handleCryptoSelect = (cryptoId) => {
+    console.log('💰 Crypto selected:', cryptoId);
     setFormData(prev => ({
       ...prev,
-      type: cryptoType
+      type: cryptoId // Store the full unique ID instead of just coinType
     }));
   };
 
@@ -169,8 +189,11 @@ const CoinSelect = () => {
       return;
     }
 
-    // Validate selected crypto is from enabled list
-    const selectedCrypto = enabledCryptos.find(crypto => crypto.coinType === formData.type);
+    // Find the selected crypto using the unique ID
+    const selectedCrypto = enabledCryptos.find(crypto => 
+      `${crypto.coinType}_${crypto.network}` === formData.type
+    );
+    
     if (!selectedCrypto) {
       setError('Selected cryptocurrency is not available. Please choose from the enabled options.');
       return;
@@ -184,14 +207,17 @@ const CoinSelect = () => {
         ...formData,
         api,
         order_id,
-        selectedCrypto: selectedCrypto.coinType
+        selectedCrypto: selectedCrypto.coinType,
+        selectedNetwork: selectedCrypto.network
       });
 
+      // Send both coinType and network to the backend
       const data = await paymentsAPI.processCoinSelection({
         fname: formData.fname.trim(),
         lname: formData.lname.trim(),
         email: formData.email.trim(),
-        type: formData.type,
+        type: selectedCrypto.coinType, // Send the coinType
+        network: selectedCrypto.network, // Send the network separately
         api,
         order_id
       });
@@ -344,39 +370,45 @@ const CoinSelect = () => {
                       {getNetworkDisplayName(networkName)}
                     </h3>
                     <div className="crypto-grid">
-                      {cryptos.map((crypto) => (
-                        <label
-                          key={crypto.coinType}
-                          className={`crypto-card ${formData.type === crypto.coinType ? 'selected' : ''} ${isSubmitting ? 'pointer-events-none opacity-75' : ''}`}
-                        >
-                          <input
-                            type="radio"
-                            name="type"
-                            value={crypto.coinType}
-                            checked={formData.type === crypto.coinType}
-                            onChange={() => handleCryptoSelect(crypto.coinType)}
-                            disabled={isSubmitting}
-                            className="sr-only"
-                          />
-                          <div className="text-center">
-                            <img
-                              src={crypto.image}
-                              alt={crypto.displayName}
-                              className="crypto-image"
-                              onError={(e) => {
-                                e.target.src = '/images/Coins/default.webp';
-                              }}
+                      {cryptos.map((crypto) => {
+                        // Create unique identifier for each crypto+network combination
+                        const uniqueCryptoId = `${crypto.coinType}_${crypto.network}`;
+                        
+                        return (
+                          <label
+                            key={uniqueCryptoId}
+                            className={`crypto-card ${formData.type === uniqueCryptoId ? 'selected' : ''} ${isSubmitting ? 'pointer-events-none opacity-75' : ''}`}
+                          >
+                            <input
+                              type="radio"
+                              name="type"
+                              value={uniqueCryptoId}
+                              checked={formData.type === uniqueCryptoId}
+                              onChange={() => handleCryptoSelect(uniqueCryptoId)}
+                              disabled={isSubmitting}
+                              className="sr-only"
                             />
-                            <p className="text-sm font-medium text-gray-900">{crypto.displayName}</p>
-                            <p className="text-xs text-gray-500">{crypto.symbol}</p>
-                          </div>
-                          {formData.type === crypto.coinType && (
-                            <div className="absolute top-2 right-2">
-                              <Icon name="CheckCircle" size={20} color="#2563eb" />
+                            <div className="text-center">
+                              <img
+                                src={crypto.image}
+                                alt={crypto.displayName}
+                                className="crypto-image"
+                                onError={(e) => {
+                                  e.target.src = '/images/Coins/default.webp';
+                                }}
+                              />
+                              <p className="text-sm font-medium text-gray-900">{crypto.displayName}</p>
+                              <p className="text-xs text-gray-500">{crypto.symbol}</p>
+                              <p className="text-xs text-gray-400 mt-1">{crypto.network}</p>
                             </div>
-                          )}
-                        </label>
-                      ))}
+                            {formData.type === uniqueCryptoId && (
+                              <div className="absolute top-2 right-2">
+                                <Icon name="CheckCircle" size={20} color="#2563eb" />
+                              </div>
+                            )}
+                          </label>
+                        );
+                      })}
                     </div>
                   </div>
                 ))}
@@ -410,7 +442,12 @@ const CoinSelect = () => {
               
               {formData.type && (
                 <p className="text-sm text-gray-500 mt-2">
-                  You will pay with {enabledCryptos.find(c => c.coinType === formData.type)?.name || formData.type}
+                  You will pay with {(() => {
+                    const selectedCrypto = enabledCryptos.find(c => 
+                      `${c.coinType}_${c.network}` === formData.type
+                    );
+                    return selectedCrypto ? `${selectedCrypto.name}` : formData.type;
+                  })()}
                 </p>
               )}
             </div>

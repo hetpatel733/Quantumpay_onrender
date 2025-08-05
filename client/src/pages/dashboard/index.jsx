@@ -4,6 +4,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import Icon from 'components/AppIcon';
 import { dashboardAPI } from 'utils/api';
 import { debounce } from 'components/lib/utils';
+import PaymentLinkModal from '../payments-management/components/PaymentLinkModal';
 
 import RecentActivity from './components/RecentActivity';
 
@@ -13,15 +14,20 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isPaymentLinkModalOpen, setIsPaymentLinkModalOpen] = useState(false);
-  const [orderIdInput, setOrderIdInput] = useState('');
-  const [orderIdError, setOrderIdError] = useState('');
 
   // Create metrics from real data - Remove Total Payments card
   const getMetrics = () => {
     if (!dashboardData) return [];
 
-    const { todayMetrics } = dashboardData;
-    
+    // Defensive: always provide a fallback structure
+    const todayMetrics = {
+      ...{
+        currentMonthSummary: { pending: 0, failed: 0 },
+        totalSales: 0
+      },
+      ...dashboardData.todayMetrics
+    };
+
     return [
       {
         title: 'Pending Transactions',
@@ -35,7 +41,7 @@ const Dashboard = () => {
       },
       {
         title: 'Completed Volume',
-        value: `$${todayMetrics.totalSales.toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+        value: `$${(todayMetrics.totalSales || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
         change: '+0.0%',
         changeType: 'neutral',
         icon: 'CheckCircle',
@@ -60,7 +66,7 @@ const Dashboard = () => {
   const getChartData = () => {
     if (!dashboardData || !dashboardData.dailyBreakdown || dashboardData.dailyBreakdown.length === 0) {
       console.log('⚠️ No daily breakdown data for chart');
-      // Return placeholder data
+      // Return placeholder data with updated crypto types
       return Array(7).fill(0).map((_, i) => {
         const date = new Date();
         date.setDate(date.getDate() - (6-i));
@@ -69,34 +75,38 @@ const Dashboard = () => {
           BTC: 0,
           ETH: 0,
           USDT: 0,
-          PYUSD: 0,
-          MATIC: 0
+          USDC: 0,
+          MATIC: 0,
+          SOL: 0
         };
       });
     }
 
     console.log('📊 Using daily breakdown data for chart:', dashboardData.dailyBreakdown.length, 'days');
     
-    // Use the daily breakdown data from the API
+    // Use the daily breakdown data from the API with updated crypto types
     return dashboardData.dailyBreakdown.map(day => ({
       name: day.name,
-      BTC: parseFloat(day.BTC || 0).toFixed(2),
-      ETH: parseFloat(day.ETH || 0).toFixed(2),
-      USDT: parseFloat(day.USDT || 0).toFixed(2),
-      PYUSD: parseFloat(day.PYUSD || 0).toFixed(2),
-      MATIC: parseFloat(day.MATIC || 0).toFixed(2)
+      BTC: parseFloat(day.BTC || 0),
+      ETH: parseFloat(day.ETH || 0),
+      USDT: parseFloat(day.USDT || 0),
+      USDC: parseFloat(day.USDC || 0),
+      MATIC: parseFloat(day.MATIC || 0),
+      SOL: parseFloat(day.SOL || 0)
     }));
   };
 
   // Create crypto distribution from real data
   const getCryptoDistribution = () => {
     if (!dashboardData || !dashboardData.cryptoDistribution) {
-      // Show placeholder for empty state
+      // Show placeholder for empty state with new crypto types
       return [
-        { name: 'USDT', value: 25, color: '#26A17B' },
-        { name: 'Bitcoin', value: 25, color: '#F7931A' },
-        { name: 'Ethereum', value: 25, color: '#627EEA' },
-        { name: 'Others', value: 25, color: '#64748B' }
+        { name: 'USDT', value: 20, color: '#26A17B' },
+        { name: 'USDC', value: 20, color: '#1FC7D4' },
+        { name: 'BTC', value: 20, color: '#F7931A' },
+        { name: 'ETH', value: 20, color: '#627EEA' },
+        { name: 'MATIC', value: 10, color: '#8247E5' },
+        { name: 'SOL', value: 10, color: '#9945FF' }
       ];
     }
 
@@ -114,7 +124,7 @@ const Dashboard = () => {
       
       // Fetch all dashboard data in parallel with caching
       const [overviewResponse, cryptoDistResponse] = await Promise.all([
-        dashboardAPI.getOverview(forceRefresh), // Pass force refresh parameter
+        dashboardAPI.getOverview(selectedPeriod, forceRefresh), // Pass selectedPeriod
         dashboardAPI.getCryptoDistribution(selectedPeriod + 'days')
       ]);
       
@@ -138,18 +148,18 @@ const Dashboard = () => {
       console.error('Error fetching dashboard data:', err);
       setError('Failed to load dashboard data. ' + err.message);
       
-      // Set default empty data for graceful degradation
+      // Set default empty data for graceful degradation with updated structure
       setDashboardData({
         todayMetrics: {
           totalSales: 0,
           transactionCount: 0,
-          volume: { USDT: 0, PYUSD: 0, BTC: 0, ETH: 0, MATIC: 0 },
+          volume: { USDT: 0, USDC: 0, BTC: 0, ETH: 0, MATIC: 0, SOL: 0 },
           currentMonthSummary: { totalPayments: 0, completed: 0, failed: 0, pending: 0 }
         },
         monthlyMetrics: {
           totalSales: 0,
           transactionCount: 0,
-          volume: { USDT: 0, PYUSD: 0, BTC: 0, ETH: 0, MATIC: 0 }
+          volume: { USDT: 0, USDC: 0, BTC: 0, ETH: 0, MATIC: 0, SOL: 0 }
         },
         orderStats: { total: 0, pending: 0, processing: 0, completed: 0, cancelled: 0 },
         cryptoDistribution: []
@@ -230,42 +240,6 @@ const Dashboard = () => {
   // Modified: open modal instead of direct link generation
   const handleGeneratePaymentLink = () => {
     setIsPaymentLinkModalOpen(true);
-    setOrderIdInput('');
-    setOrderIdError('');
-  };
-
-  // New: handle modal submit
-  const handlePaymentLinkSubmit = async (e) => {
-    e.preventDefault();
-    if (!orderIdInput.trim()) {
-      setOrderIdError('Order ID is required');
-      return;
-    }
-
-    try {
-      // Get user's first active API key
-      const { apiKeysAPI } = await import('utils/api');
-      const response = await apiKeysAPI.getAll();
-      
-      if (response.success && response.apiKeys && response.apiKeys.length > 0) {
-        const activeKey = response.apiKeys.find(key => key.isActive);
-        if (activeKey) {
-          const baseUrl = import.meta.env.VITE_CLIENT_URL || 'http://localhost:9000';
-          const paymentLink = `${baseUrl}/payment/${activeKey.key}/${orderIdInput.trim()}`;
-          navigator.clipboard.writeText(paymentLink);
-          alert(`Payment link generated and copied to clipboard!\n\n${paymentLink}`);
-        } else {
-          alert('No active API keys found. Please create an API key first.');
-        }
-      } else {
-        alert('Unable to generate payment link. Please create an API key first.');
-      }
-    } catch (error) {
-      console.error('Error generating payment link:', error);
-      alert('Failed to generate payment link. Please try again.');
-    }
-    
-    setIsPaymentLinkModalOpen(false);
   };
 
   // Add this function to fix the ReferenceError
@@ -293,50 +267,14 @@ const Dashboard = () => {
 
       {/* Payment Link Modal */}
       {isPaymentLinkModalOpen && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-surface rounded-lg shadow-lg p-8 w-full max-w-md relative z-[10000]">
-            <button
-              onClick={() => setIsPaymentLinkModalOpen(false)}
-              className="absolute top-3 right-3 p-2 rounded hover:bg-secondary-100"
-            >
-              <Icon name="X" size={20} color="currentColor" />
-            </button>
-            <h2 className="text-xl font-semibold text-text-primary mb-4">Generate Payment Link</h2>
-            <form onSubmit={handlePaymentLinkSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-text-secondary mb-2">
-                  Enter Order ID
-                </label>
-                <input
-                  type="text"
-                  value={orderIdInput}
-                  onChange={e => { setOrderIdInput(e.target.value); setOrderIdError(''); }}
-                  className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-                  placeholder="Order ID"
-                  autoFocus
-                />
-                {orderIdError && (
-                  <p className="text-error text-xs mt-1">{orderIdError}</p>
-                )}
-              </div>
-              <div className="flex justify-end space-x-2">
-                <button
-                  type="button"
-                  onClick={() => setIsPaymentLinkModalOpen(false)}
-                  className="px-4 py-2 border border-border rounded-lg text-text-secondary hover:text-text-primary hover:bg-secondary-100 transition-smooth"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary-700 transition-smooth"
-                >
-                  Generate & Copy Link
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <PaymentLinkModal
+          isOpen={isPaymentLinkModalOpen}
+          onClose={() => setIsPaymentLinkModalOpen(false)}
+          onSuccess={(link) => {
+            navigator.clipboard.writeText(link);
+            alert(`Payment link generated and copied to clipboard!\n\n${link}`);
+          }}
+        />
       )}
       
       {/* Page Header */}
@@ -449,8 +387,7 @@ const Dashboard = () => {
               parseFloat(day.BTC) > 0 || 
               parseFloat(day.ETH) > 0 || 
               parseFloat(day.USDT) > 0 || 
-              parseFloat(day.PYUSD) > 0 || 
-              parseFloat(day.MATIC) > 0
+              parseFloat(day.USDC) > 0
             ) ? (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
@@ -476,8 +413,9 @@ const Dashboard = () => {
                   <Bar dataKey="BTC" fill="#F7931A" name="Bitcoin" />
                   <Bar dataKey="ETH" fill="#627EEA" name="Ethereum" />
                   <Bar dataKey="USDT" fill="#26A17B" name="USDT" />
-                  <Bar dataKey="PYUSD" fill="#1FC7D4" name="PYUSD" />
+                  <Bar dataKey="USDC" fill="#1FC7D4" name="USDC" />
                   <Bar dataKey="MATIC" fill="#8247E5" name="MATIC" />
+                  <Bar dataKey="SOL" fill="#9945FF" name="SOL" />
                 </BarChart>
               </ResponsiveContainer>
             ) : (

@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { Payment } = require('../models/payment');
+const { Payment } = require('../models/Payment');
 const { PaymentConfiguration } = require('../models/PaymentConfiguration');
 const { Order } = require('../models/Order');
 const { authenticateUser } = require('../services/auth');
@@ -15,10 +15,10 @@ const generatePaymentId = () => {
 // Get all payments for the authenticated business
 router.get('/', authenticateUser, async (req, res) => {
   try {
-    const { status, limit = 20, skip = 0, sortBy = 'createdAt', sortOrder = 'desc' } = req.query;
+    const { status, limit = 20, skip = 0, sortBy = 'createdAt', sortOrder = 'desc', cryptoType, network } = req.query;
     
     console.log('🔍 Fetching payments for:', req.user.email);
-    console.log('🔍 Query params:', { status, limit, skip, sortBy, sortOrder });
+    console.log('🔍 Query params:', { status, limit, skip, sortBy, sortOrder, cryptoType, network });
     
     // First, let's check if any payments exist at all
     const totalPaymentsInDB = await Payment.countDocuments({});
@@ -37,6 +37,18 @@ router.get('/', authenticateUser, async (req, res) => {
       console.log('🔍 Adding status filter:', status);
     } else {
       console.log('🔍 No status filter applied (showing all payments)');
+    }
+
+    // Add crypto type filter
+    if (cryptoType && cryptoType !== 'all') {
+      query.cryptoType = cryptoType;
+      console.log('🔍 Adding crypto type filter:', cryptoType);
+    }
+
+    // Add network filter
+    if (network && network !== 'all') {
+      query.network = network;
+      console.log('🔍 Adding network filter:', network);
     }
     
     console.log('🔍 Final query:', query);
@@ -63,6 +75,8 @@ router.get('/', authenticateUser, async (req, res) => {
         payId: p.payId,
         businessEmail: p.businessEmail,
         status: p.status,
+        cryptoType: p.cryptoType,
+        network: p.network,
         createdAt: p.createdAt
       })));
     }
@@ -79,6 +93,7 @@ router.get('/', authenticateUser, async (req, res) => {
       amountCrypto: payment.amountCrypto,
       cryptoType: payment.cryptoType,
       cryptoSymbol: payment.cryptoSymbol || payment.cryptoType,
+      network: payment.network || 'Unknown',
       status: payment.status,
       hash: payment.hash,
       createdAt: payment.createdAt,
@@ -118,14 +133,14 @@ router.get('/order/:orderId', authenticateUser, async (req, res) => {
   try {
     const { orderId } = req.params;
     
-    // Verify the order belongs to this business
+    // Verify the product belongs to this business
     const order = await Order.findOne({ 
       orderId,
       businessEmail: req.user.email
     });
     
     if (!order) {
-      return res.status(404).json({ success: false, message: 'Order not found' });
+      return res.status(404).json({ success: false, message: 'Product not found' });
     }
     
     const payments = await Payment.find({ 
@@ -135,7 +150,7 @@ router.get('/order/:orderId', authenticateUser, async (req, res) => {
     
     res.status(200).json({ success: true, payments });
   } catch (error) {
-    console.error('Error fetching payments for order:', error);
+    console.error('Error fetching payments for product:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });
@@ -159,8 +174,16 @@ router.get('/:payId', authenticateUser, async (req, res) => {
       console.log('❌ Unauthorized access attempt:', req.user.email, 'tried to access payment for:', payment.businessEmail);
       return res.status(403).json({ success: false, message: 'Unauthorized' });
     }
+
+    // Check associated order (product availability)
+    const order = await Order.findOne({ orderId: payment.orderId });
+    if (order) {
+      // Add order info to payment data for reference
+      payment.productName = order.productName;
+      payment.productIsActive = order.isActive;
+    }
     
-    // Get payment configuration to include wallet address
+    // Get payment configuration to include wallet address with network support
     const paymentConfig = await PaymentConfiguration.findOne({
       businessEmail: payment.businessEmail
     });
@@ -169,7 +192,9 @@ router.get('/:payId', authenticateUser, async (req, res) => {
     
     if (paymentConfig && paymentConfig.cryptoConfigurations) {
       const cryptoConfig = paymentConfig.cryptoConfigurations.find(
-        crypto => crypto.coinType === payment.cryptoType
+        crypto => crypto.coinType === payment.cryptoType && 
+                 crypto.network === payment.network &&
+                 crypto.enabled
       );
       if (cryptoConfig && cryptoConfig.address) {
         walletAddress = cryptoConfig.address;
@@ -178,7 +203,8 @@ router.get('/:payId', authenticateUser, async (req, res) => {
 
     const enrichedPayment = {
       ...payment.toObject(),
-      walletAddress: walletAddress
+      walletAddress: walletAddress,
+      network: payment.network || 'Unknown'
     };
     
     console.log('✅ Payment found and enriched:', payId);
@@ -189,7 +215,7 @@ router.get('/:payId', authenticateUser, async (req, res) => {
   }
 });
 
-// Update payment status (manually)
+// Update payment status (manually) - Remove order status updates
 router.put('/:payId/status', authenticateUser, async (req, res) => {
   try {
     const { payId } = req.params;
@@ -236,27 +262,8 @@ router.put('/:payId/status', authenticateUser, async (req, res) => {
       console.error('❌ Error updating dashboard metrics:', metricsError);
     }
     
-    // If payment completed, update order status too
-    if (status === 'completed') {
-      await Order.updateOne(
-        { orderId: payment.orderId },
-        { $set: { status: 'completed' } }
-      );
-    } else if (status === 'failed' || status === 'cancelled') {
-      // Check if this was the only payment, if so revert order to pending
-      const otherPayments = await Payment.countDocuments({
-        orderId: payment.orderId,
-        status: { $nin: ['failed', 'cancelled'] },
-        payId: { $ne: payId }
-      });
-      
-      if (otherPayments === 0) {
-        await Order.updateOne(
-          { orderId: payment.orderId },
-          { $set: { status: 'pending' } }
-        );
-      }
-    }
+    // DO NOT update order status - orders are products that can be purchased multiple times
+    // Payment completion/failure doesn't affect product availability
     
     res.status(200).json({ 
       success: true, 
@@ -326,6 +333,7 @@ router.post('/debug/create-test', authenticateUser, async (req, res) => {
       amountCrypto: 100.01,
       cryptoType: 'USDT',
       cryptoSymbol: 'USDT',
+      network: 'Polygon',
       exchangeRate: 1.0,
       status: 'pending'
     });
@@ -341,6 +349,204 @@ router.post('/debug/create-test', authenticateUser, async (req, res) => {
   } catch (error) {
     console.error('❌ Error creating test payment:', error);
     res.status(500).json({ error: error.message });
+  }
+});
+
+// Add new endpoint to get payment statistics by network
+router.get('/stats/networks', authenticateUser, async (req, res) => {
+  try {
+    const networkStats = await Payment.getNetworkStats(req.user.email);
+    
+    res.status(200).json({
+      success: true,
+      networkStats
+    });
+  } catch (error) {
+    console.error('❌ Error fetching network stats:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Server error: ' + error.message 
+    });
+  }
+});
+
+// Add the missing payment details endpoint (NO AUTHENTICATION - for customer use)
+router.get('/payment-details', async (req, res) => {
+  try {
+    const { payid } = req.query;
+    
+    if (!payid) {
+      return res.status(400).json({
+        success: false,
+        message: 'Payment ID is required'
+      });
+    }
+
+    console.log('🔍 Fetching payment details for payid:', payid);
+
+    const payment = await Payment.findOne({ payId: payid });
+    
+    if (!payment) {
+      return res.status(404).json({
+        success: false,
+        message: 'Payment not found'
+      });
+    }
+
+    // Get order details to check if it's still active
+    const { Order } = require('../models/Order');
+    const order = await Order.findOne({ orderId: payment.orderId });
+    
+    // Get business API status
+    const { BusinessAPI } = require('../models/BusinessAPI');
+    const businessAPI = await BusinessAPI.findOne({ businessEmail: payment.businessEmail });
+
+    // Get payment configuration to find the correct wallet address
+    const paymentConfig = await PaymentConfiguration.findOne({
+      businessEmail: payment.businessEmail
+    });
+
+    let walletAddress = payment.businessEmail; // fallback to email
+
+    if (paymentConfig && paymentConfig.cryptoConfigurations) {
+      const cryptoConfig = paymentConfig.cryptoConfigurations.find(
+        crypto => crypto.coinType === payment.cryptoType && 
+                 crypto.network === payment.network &&
+                 crypto.enabled
+      );
+      if (cryptoConfig && cryptoConfig.address) {
+        walletAddress = cryptoConfig.address;
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      payment: {
+        payid: payment.payId,
+        payId: payment.payId,
+        id: payment.payId,
+        order_id: payment.orderId,
+        orderId: payment.orderId,
+        amountUSD: payment.amountUSD,
+        amountCrypto: payment.amountCrypto,
+        amount: payment.amountCrypto,
+        businessEmail: payment.businessEmail,
+        customerEmail: payment.customerEmail,
+        customerName: payment.customerName,
+        cryptoType: payment.cryptoType,
+        cryptoSymbol: payment.cryptoSymbol,
+        type: payment.cryptoType,
+        network: payment.network,
+        status: payment.status,
+        hash: payment.hash,
+        timestamp: payment.createdAt,
+        createdAt: payment.createdAt,
+        completedAt: payment.completedAt,
+        walletAddress: walletAddress,
+        address: walletAddress,
+        // Add order and API status information
+        orderStatus: order?.status,
+        orderIsActive: order?.isActive,
+        apiStatus: businessAPI ? { isActive: businessAPI.isActive } : null,
+        apiIsActive: businessAPI?.isActive
+      }
+    });
+
+  } catch (error) {
+    console.error("❌ Error fetching payment details:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error"
+    });
+  }
+});
+
+// Add the missing payment status check endpoint (NO AUTHENTICATION - for customer use)
+router.get('/check-status', async (req, res) => {
+  try {
+    const { payid } = req.query;
+
+    if (!payid) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Missing payid" 
+      });
+    }
+
+    console.log('🔍 Checking payment status for payid:', payid);
+
+    const payment = await Payment.findOne({ payId: payid });
+
+    if (!payment) {
+      return res.status(404).json({ 
+        success: false, 
+        message: "Payment ID not found" 
+      });
+    }
+
+    // Get order details to check if it's still active
+    const { Order } = require('../models/Order');
+    const order = await Order.findOne({ orderId: payment.orderId });
+    
+    // Get business API status
+    const { BusinessAPI } = require('../models/BusinessAPI');
+    const businessAPI = await BusinessAPI.findOne({ businessEmail: payment.businessEmail });
+
+    // Check for deactivated order or paused API
+    if (order && !order.isActive) {
+      return res.status(400).json({
+        success: false,
+        message: "This product/service has been deactivated and is no longer available for payment.",
+        errorCode: "ORDER_DEACTIVATED"
+      });
+    }
+    
+    if (businessAPI && !businessAPI.isActive) {
+      return res.status(400).json({
+        success: false,
+        message: "Payment processing is currently paused by the merchant. Please contact support.",
+        errorCode: "API_PAUSED"
+      });
+    }
+
+    // Get payment configuration to find the correct wallet address
+    const paymentConfig = await PaymentConfiguration.findOne({
+      businessEmail: payment.businessEmail
+    });
+
+    let walletAddress = payment.businessEmail; // fallback
+
+    if (paymentConfig && paymentConfig.cryptoConfigurations) {
+      const cryptoConfig = paymentConfig.cryptoConfigurations.find(
+        crypto => crypto.coinType === payment.cryptoType && 
+                 crypto.network === payment.network &&
+                 crypto.enabled
+      );
+      if (cryptoConfig && cryptoConfig.address) {
+        walletAddress = cryptoConfig.address;
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      payid: payment.payId,
+      status: payment.status,
+      order_id: payment.orderId,
+      businessEmail: payment.businessEmail,
+      cryptoType: payment.cryptoType,
+      type: payment.cryptoType,
+      amount: payment.amountCrypto,
+      network: payment.network,
+      address: walletAddress,
+      timestamp: payment.createdAt || null
+    });
+
+  } catch (err) {
+    console.error("❌ Error fetching payment status:", err);
+    return res.status(500).json({ 
+      success: false, 
+      message: "Internal server error" 
+    });
   }
 });
 

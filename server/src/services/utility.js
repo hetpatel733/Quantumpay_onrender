@@ -23,6 +23,11 @@ const updateUser = async (req, res) => {
         const userId = req.params.id;
         const updateData = req.body;
         
+        // Remove any potentially harmful fields that could affect order status
+        delete updateData.orders;
+        delete updateData.orderStatus;
+        delete updateData.completedOrders;
+        
         // Validate user ID format
         if (!userId.match(/^[0-9a-fA-F]{24}$/)) {
             console.log("📤 RESPONSE SENT: Invalid user ID format - Status: 400");

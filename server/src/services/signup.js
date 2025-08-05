@@ -11,51 +11,166 @@ const { initializeBusinessMetrics } = require('./dashboardMetricsService');
 const createDefaultPaymentConfigurations = async (businessEmail) => {
     try {
         const defaultCryptoConfigs = [
+            // USDT configurations for multiple networks
             {
                 coinType: 'USDT',
                 enabled: false,
                 address: '',
-                label: 'USDT Configuration',
+                label: 'USDT on Polygon',
                 network: 'Polygon',
-                isDefault: false
+                isDefault: false,
+                networkConfig: {
+                    contractAddress: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
+                    decimals: 6,
+                    chainId: 137,
+                    explorerUrl: 'https://polygonscan.com'
+                }
             },
             {
-                coinType: 'PYUSD',
+                coinType: 'USDT',
                 enabled: false,
                 address: '',
-                label: 'PayPal USD Configuration',
-                network: 'Polygon',
-                isDefault: false
+                label: 'USDT on Ethereum',
+                network: 'Ethereum',
+                isDefault: false,
+                networkConfig: {
+                    contractAddress: '0xdAC17F958D2ee523a2206206994597C13D831ec7',
+                    decimals: 6,
+                    chainId: 1,
+                    explorerUrl: 'https://etherscan.io'
+                }
             },
+            {
+                coinType: 'USDT',
+                enabled: false,
+                address: '',
+                label: 'USDT on BSC',
+                network: 'BSC',
+                isDefault: false,
+                networkConfig: {
+                    contractAddress: '0x55d398326f99059fF775485246999027B3197955',
+                    decimals: 18,
+                    chainId: 56,
+                    explorerUrl: 'https://bscscan.com'
+                }
+            },
+            // USDC configurations for multiple networks
+            {
+                coinType: 'USDC',
+                enabled: false,
+                address: '',
+                label: 'USDC on Polygon',
+                network: 'Polygon',
+                isDefault: false,
+                networkConfig: {
+                    contractAddress: '0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174',
+                    decimals: 6,
+                    chainId: 137,
+                    explorerUrl: 'https://polygonscan.com'
+                }
+            },
+            {
+                coinType: 'USDC',
+                enabled: false,
+                address: '',
+                label: 'USDC on Ethereum',
+                network: 'Ethereum',
+                isDefault: false,
+                networkConfig: {
+                    contractAddress: '0xA0b86a33E6c8d8e7aB1C3F0F8D0c5E6f8d4eC7b3',
+                    decimals: 6,
+                    chainId: 1,
+                    explorerUrl: 'https://etherscan.io'
+                }
+            },
+            {
+                coinType: 'USDC',
+                enabled: false,
+                address: '',
+                label: 'USDC on BSC',
+                network: 'BSC',
+                isDefault: false,
+                networkConfig: {
+                    contractAddress: '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d',
+                    decimals: 18,
+                    chainId: 56,
+                    explorerUrl: 'https://bscscan.com'
+                }
+            },
+            // Bitcoin
             {
                 coinType: 'BTC',
                 enabled: false,
                 address: '',
-                label: 'Bitcoin Configuration',
+                label: 'Bitcoin',
                 network: 'Bitcoin',
-                isDefault: false
+                isDefault: false,
+                networkConfig: {
+                    contractAddress: '',
+                    decimals: 8,
+                    chainId: null,
+                    explorerUrl: 'https://blockstream.info'
+                }
             },
+            // Ethereum
             {
                 coinType: 'ETH',
                 enabled: false,
                 address: '',
-                label: 'Ethereum Configuration',
+                label: 'Ethereum',
                 network: 'Ethereum',
-                isDefault: false
+                isDefault: false,
+                networkConfig: {
+                    contractAddress: '',
+                    decimals: 18,
+                    chainId: 1,
+                    explorerUrl: 'https://etherscan.io'
+                }
+            }
+        ];
+
+        // Default API providers configuration - unified approach
+        const defaultApiProviders = [
+            {
+                name: 'Etherscan',
+                apiKey: process.env.ETHERSCAN_API_KEY || 'Y1EGDU1IS7CK8YN2MFFAGY75KWXZMP94C2',
+                network: 'EVM', // Unified for all EVM chains
+                baseUrl: 'https://api.etherscan.io/v2/api',
+                isActive: true,
+                rateLimit: {
+                    requestsPerSecond: 5,
+                    requestsPerDay: 100000
+                },
+                supportedChains: ['Ethereum', 'Polygon', 'BSC']
             },
             {
-                coinType: 'MATIC',
-                enabled: false,
-                address: '',
-                label: 'Polygon Native Token',
-                network: 'Polygon',
-                isDefault: false
+                name: 'Blockstream',
+                apiKey: 'not-required', // Blockstream API doesn't require API key for basic usage
+                network: 'Bitcoin',
+                baseUrl: 'https://blockstream.info/api',
+                isActive: true,
+                rateLimit: {
+                    requestsPerSecond: 10,
+                    requestsPerDay: 1000000
+                }
+            },
+            {
+                name: 'Solscan',
+                apiKey: process.env.SOLSCAN_API_KEY || 'YourSolscanAPIKey',
+                network: 'Solana',
+                baseUrl: 'https://api.solscan.io',
+                isActive: true,
+                rateLimit: {
+                    requestsPerSecond: 5,
+                    requestsPerDay: 100000
+                }
             }
         ];
 
         const paymentConfig = new PaymentConfiguration({
             businessEmail,
             cryptoConfigurations: defaultCryptoConfigs,
+            apiProviders: defaultApiProviders,
             conversionSettings: {
                 autoConvert: false,
                 baseCurrency: 'USD',
@@ -147,14 +262,14 @@ const createSetupNotifications = async (businessEmail) => {
                 }
             },
             {
-                message: 'Generate API keys to integrate QuantumPay with your website or application.',
-                orderId: 'SYSTEM-SETUP-API',
+                message: 'Create your first product to start accepting crypto payments from customers.',
+                orderId: 'SYSTEM-SETUP-PRODUCTS',
                 type: 'system',
                 isRead: false,
                 priority: 'medium',
                 metadata: {
                     source: 'system',
-                    action: 'setup_api_keys'
+                    action: 'setup_products'
                 }
             }
         ];
