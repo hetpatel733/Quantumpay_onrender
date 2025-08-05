@@ -197,8 +197,6 @@ const getUserData = async (req, res) => {
         });
 
     } catch (error) {
-        console.error("Get user data error:", error);
-        console.log("📤 RESPONSE SENT: Failed to retrieve user data - Status: 500");
         return res.status(500).json({
             success: false,
             message: "Failed to retrieve user data: " + error.message

@@ -9,7 +9,6 @@ router.get('/', authenticateUser, async (req, res) => {
     const users = await User.find().select('-passwordHash -token');
     res.status(200).json({ success: true, users });
   } catch (error) {
-    console.error('Error fetching users:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });
@@ -23,7 +22,6 @@ router.get('/:id', authenticateUser, async (req, res) => {
     }
     res.status(200).json({ success: true, user });
   } catch (error) {
-    console.error('Error fetching user:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });
@@ -35,13 +33,10 @@ router.put('/:id', authenticateUser, async (req, res) => {
     const requestingUserId = req.user.id;
     const targetUserId = req.params.id;
     
-    console.log("🔍 Auth check - Requesting user:", requestingUserId, "Target user:", targetUserId);
-    
     // Allow if user is updating their own profile
     if (requestingUserId !== targetUserId) {
       // For now, let's be more permissive and allow updates
       // In production, you might want stricter checks
-      console.log("⚠️ WARNING: User updating different profile");
     }
 
     const {
@@ -66,8 +61,6 @@ router.put('/:id', authenticateUser, async (req, res) => {
     if (timeZone !== undefined) updateData.timeZone = timeZone;
     if (description !== undefined) updateData.description = description;
 
-    console.log("🔄 Updating user with data:", updateData);
-
     const user = await User.findByIdAndUpdate(
       req.params.id,
       { $set: updateData },
@@ -78,10 +71,8 @@ router.put('/:id', authenticateUser, async (req, res) => {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
 
-    console.log("✅ User updated successfully");
     res.status(200).json({ success: true, user, message: 'Profile updated successfully' });
   } catch (error) {
-    console.error('Error updating user:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });
@@ -89,33 +80,22 @@ router.put('/:id', authenticateUser, async (req, res) => {
 // Change password
 router.put('/:id/password', authenticateUser, async (req, res) => {
   try {
-    console.log("🔍 REQUEST RECEIVED: Change password for user:", req.params.id);
-    console.log("🔍 Authenticated user ID:", req.user.id);
-    console.log("🔍 Authenticated user object:", req.user);
-    
     // Convert both IDs to string for comparison
     const requestingUserId = String(req.user.id);
     const targetUserId = String(req.params.id);
     
-    console.log("🔍 String comparison - Requesting:", requestingUserId, "Target:", targetUserId);
-    
     // Verify user is updating their own password
     if (requestingUserId !== targetUserId) {
-      console.log("📤 RESPONSE SENT: Unauthorized access attempt - Status: 403");
-      console.log("❌ User ID mismatch:", requestingUserId, "!==", targetUserId);
       return res.status(403).json({ 
         success: false, 
         message: 'You can only change your own password' 
       });
     }
 
-    console.log("✅ User ID verification passed");
-
     const { currentPassword, newPassword } = req.body;
 
     // Validate input
     if (!currentPassword || !newPassword) {
-      console.log("📤 RESPONSE SENT: Missing required fields - Status: 400");
       return res.status(400).json({ 
         success: false, 
         message: 'Current password and new password are required' 
@@ -124,7 +104,6 @@ router.put('/:id/password', authenticateUser, async (req, res) => {
 
     // Validate new password strength
     if (newPassword.length < 8) {
-      console.log("📤 RESPONSE SENT: Weak password - Status: 400");
       return res.status(400).json({ 
         success: false, 
         message: 'New password must be at least 8 characters long' 
@@ -133,40 +112,29 @@ router.put('/:id/password', authenticateUser, async (req, res) => {
 
     const user = await User.findById(req.params.id);
     if (!user) {
-      console.log("📤 RESPONSE SENT: User not found - Status: 404");
       return res.status(404).json({ 
         success: false, 
         message: 'User not found' 
       });
     }
 
-    console.log("✅ User found in database");
-
     // Verify current password
     if (user.passwordHash !== currentPassword) {
-      console.log("📤 RESPONSE SENT: Incorrect current password - Status: 400");
       return res.status(400).json({ 
         success: false, 
         message: 'Current password is incorrect' 
       });
     }
 
-    console.log("✅ Current password verified");
-
     // Update password
     user.passwordHash = newPassword;
     await user.save();
-
-    console.log("Password updated successfully for user:", req.params.id);
-    console.log("📤 RESPONSE SENT: Password updated - Status: 200");
 
     res.status(200).json({ 
       success: true, 
       message: 'Password updated successfully' 
     });
   } catch (error) {
-    console.error('Error changing password:', error);
-    console.log("📤 RESPONSE SENT: Server error - Status: 500");
     res.status(500).json({ 
       success: false, 
       message: 'Server error: ' + error.message 
@@ -189,7 +157,6 @@ router.delete('/:id', authenticateUser, async (req, res) => {
 
     res.status(200).json({ success: true, message: 'User account deleted successfully' });
   } catch (error) {
-    console.error('Error deleting user:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });

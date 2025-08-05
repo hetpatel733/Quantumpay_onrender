@@ -18,8 +18,6 @@ const { createNotification, createPaymentNotification } = require('./notificatio
 // Add updateUser service
 const updateUser = async (req, res) => {
     try {
-        console.log("🔍 REQUEST RECEIVED: Update user for ID:", req.params.id);
-        
         const userId = req.params.id;
         const updateData = req.body;
         
@@ -30,7 +28,6 @@ const updateUser = async (req, res) => {
         
         // Validate user ID format
         if (!userId.match(/^[0-9a-fA-F]{24}$/)) {
-            console.log("📤 RESPONSE SENT: Invalid user ID format - Status: 400");
             return res.status(400).json({
                 success: false,
                 message: "Invalid user ID format"
@@ -45,15 +42,11 @@ const updateUser = async (req, res) => {
         ).select('-passwordHash -token');
 
         if (!user) {
-            console.log("📤 RESPONSE SENT: User not found - Status: 404");
             return res.status(404).json({
                 success: false,
                 message: "User not found"
             });
         }
-
-        console.log("User updated successfully:", userId);
-        console.log("📤 RESPONSE SENT: User updated - Status: 200");
 
         return res.status(200).json({
             success: true,
@@ -62,8 +55,6 @@ const updateUser = async (req, res) => {
         });
 
     } catch (error) {
-        console.error("Update user error:", error);
-        console.log("📤 RESPONSE SENT: Update failed - Status: 500");
         return res.status(500).json({
             success: false,
             message: "Failed to update profile: " + error.message
@@ -74,16 +65,12 @@ const updateUser = async (req, res) => {
 // Add notification settings utilities
 const getNotificationSettings = async (req, res) => {
     try {
-        console.log("🔍 REQUEST RECEIVED: Get notification settings for:", req.user.email);
-        
         let settings = await NotificationSettings.findOne({
             businessEmail: req.user.email
         });
 
         // If no settings exist, create default ones
         if (!settings) {
-            console.log('🏗️ Creating default notification settings');
-            
             settings = new NotificationSettings({
                 businessEmail: req.user.email,
                 emailNotifications: {
@@ -104,18 +91,14 @@ const getNotificationSettings = async (req, res) => {
             });
 
             await settings.save();
-            console.log('✅ Default notification settings created');
         }
 
-        console.log("📤 RESPONSE SENT: Notification settings retrieved - Status: 200");
         return res.status(200).json({
             success: true,
             settings
         });
 
     } catch (error) {
-        console.error("Get notification settings error:", error);
-        console.log("📤 RESPONSE SENT: Get settings failed - Status: 500");
         return res.status(500).json({
             success: false,
             message: "Failed to get notification settings: " + error.message
@@ -125,8 +108,6 @@ const getNotificationSettings = async (req, res) => {
 
 const updateNotificationSettings = async (req, res) => {
     try {
-        console.log("🔍 REQUEST RECEIVED: Update notification settings for:", req.user.email);
-        
         const { emailNotifications, pushNotifications } = req.body;
 
         let settings = await NotificationSettings.findOne({
@@ -158,9 +139,7 @@ const updateNotificationSettings = async (req, res) => {
         }
 
         await settings.save();
-        console.log('✅ Notification settings updated successfully');
 
-        console.log("📤 RESPONSE SENT: Notification settings updated - Status: 200");
         return res.status(200).json({
             success: true,
             settings,
@@ -168,8 +147,6 @@ const updateNotificationSettings = async (req, res) => {
         });
 
     } catch (error) {
-        console.error("Update notification settings error:", error);
-        console.log("📤 RESPONSE SENT: Update failed - Status: 500");
         return res.status(500).json({
             success: false,
             message: "Failed to update notification settings: " + error.message

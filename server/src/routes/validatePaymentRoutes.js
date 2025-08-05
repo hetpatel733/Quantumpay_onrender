@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { BusinessAPI } = require('../models/BusinessAPI');
+const { BusinessAPI } = require('../models/model_BusinessAPI');
 const { Order } = require('../models/Order');
 const { PaymentConfiguration } = require('../models/PaymentConfiguration');
 
@@ -8,8 +8,6 @@ const { PaymentConfiguration } = require('../models/PaymentConfiguration');
 router.get('/validate-payment', async (req, res) => {
   try {
     const { api, order_id } = req.query;
-    
-    console.log('🔍 Validating payment request:', { api: api?.substring(0, 10) + '...', order_id });
     
     if (!api || !order_id) {
       return res.status(400).json({
@@ -78,13 +76,10 @@ router.get('/validate-payment', async (req, res) => {
       const pricingService = require('../services/pricingService');
       const enabledSymbols = [...new Set(enabledCryptos.map(c => c.coinType))];
       cryptoPrices = await pricingService.getMultipleCryptoPrices(enabledSymbols);
-      console.log('💰 Current crypto prices:', cryptoPrices);
     } catch (error) {
       console.error('❌ Error fetching crypto prices:', error);
       // Continue without prices - will use fallback in payment creation
     }
-
-    console.log(`✅ Found ${enabledCryptos.length} enabled cryptocurrencies for ${apiRecord.businessEmail}`);
 
     res.status(200).json({
       success: true,
